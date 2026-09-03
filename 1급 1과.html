@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>한국어로 인사하기 | 개인 발음형</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between antialiased selection:bg-indigo-100 selection:text-indigo-800">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+    <div class="max-w-md mx-auto px-4 py-2.5 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+        <span class="text-xs font-semibold tracking-wide text-indigo-900 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100" id="header-badge">
+          1급 1과 · 안녕하세요
+        </span>
+      </div>
+      <span class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+        개인 발음형
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-md mx-auto w-full px-4 py-3 flex-1 flex flex-col justify-start space-y-3">
+    
+    <!-- Title & Description -->
+    <div>
+      <h1 class="text-lg font-bold text-slate-900 tracking-tight leading-tight">듣고 같은 문장을 말해요</h1>
+      <p class="text-xs text-slate-500 mt-0.5">먼저 문장을 듣고, 마이크나 직접 입력으로 연습하세요.</p>
+    </div>
+
+    <!-- Active Practice Card Screen -->
+    <div id="practice-card" class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex flex-col space-y-3">
+      
+      <!-- Progress Bar & Scene Header -->
+      <div class="space-y-1">
+        <div class="flex justify-between items-center text-xs font-medium text-slate-500">
+          <span id="scene-badge" class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded font-medium text-[11px]">인사하기1</span>
+          <span id="progress-text" class="font-semibold text-indigo-600">1 / 4</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+          <div id="progress-bar" class="bg-indigo-600 h-1.5 rounded-full transition-all duration-300 w-1/4"></div>
+        </div>
+      </div>
+
+      <!-- Target Sentence Display (Visible Immediately) -->
+      <div class="bg-indigo-50/60 rounded-xl p-3 border border-indigo-100 text-center relative overflow-hidden">
+        <p class="text-[10px] font-medium text-indigo-500 uppercase tracking-wider mb-0.5">목표 문장</p>
+        <div id="target-sentence" class="text-xl font-bold text-slate-900 tracking-wide my-0.5">
+          안녕하세요.
+        </div>
+      </div>
+
+      <!-- Listen TTS Action Buttons (Same Row) -->
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="btn-listen-normal" onclick="playTTS(0.92)" class="flex items-center justify-center space-x-1.5 py-2 px-2.5 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 text-indigo-700 text-xs font-semibold rounded-xl transition border border-indigo-200">
+          <i class="fa-solid fa-volume-high text-xs"></i>
+          <span>모범 문장 듣기</span>
+        </button>
+        <button type="button" id="btn-listen-slow" onclick="playTTS(0.72)" class="flex items-center justify-center space-x-1.5 py-2 px-2.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition border border-slate-200">
+          <i class="fa-solid fa-gauge-simple-low text-xs"></i>
+          <span>천천히 듣기</span>
+        </button>
+      </div>
+
+      <!-- Full Width Primary Action: Speech Recording Button -->
+      <div>
+        <button type="button" id="btn-record" onclick="toggleSpeechRecognition()" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs rounded-xl shadow-sm hover:shadow transition flex items-center justify-center space-x-2">
+          <i id="record-icon" class="fa-solid fa-microphone text-sm"></i>
+          <span id="record-text">내가 말하기</span>
+        </button>
+      </div>
+
+      <!-- Direct Manual Input Section -->
+      <div class="pt-2 border-t border-slate-100 space-y-2">
+        <label for="typed-input" class="block text-[11px] font-medium text-slate-500">
+          마이크가 어렵다면 직접 입력하세요
+        </label>
+        <input type="text" id="typed-input" placeholder="들은 문장을 입력하세요" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="btn-check-input" onclick="handleManualSubmit()" class="py-2 px-3 bg-slate-800 hover:bg-slate-900 active:bg-black text-white text-xs font-medium rounded-xl transition">
+            입력 확인
+          </button>
+          <button type="button" id="btn-next" onclick="handleNextStep()" disabled class="py-2 px-3 bg-slate-100 text-slate-400 text-xs font-medium rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed">
+            다음 문장
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Status Area -->
+      <div id="status-area" role="status" aria-live="polite" class="p-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-medium flex items-center space-x-2">
+        <i id="status-icon" class="fa-solid fa-circle-info text-slate-400 text-xs shrink-0"></i>
+        <span id="status-text" class="truncate">모범 문장을 먼저 들어 보세요.</span>
+      </div>
+
+      <!-- Detailed Result Box (Hidden Until Evaluated) -->
+      <div id="result-box" class="hidden rounded-xl p-3 border transition-all space-y-1">
+        <div class="flex items-center justify-between">
+          <span id="result-title" class="font-bold text-xs">--점</span>
+          <span id="result-tag" class="text-[10px] font-semibold px-2 py-0.5 rounded-full">피드백</span>
+        </div>
+        <p id="result-body" class="text-[11px] leading-relaxed">평가 결과가 이곳에 표시됩니다.</p>
+      </div>
+
+    </div>
+
+    <!-- Completion Screen (Initially Hidden) -->
+    <div id="completion-card" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-200 text-center space-y-3.5 my-auto">
+      <div class="flex justify-between items-center text-xs font-medium text-slate-500">
+        <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded font-medium text-[11px]">진행: 완료</span>
+        <span class="font-semibold text-emerald-600">4 / 4</span>
+      </div>
+
+      <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl shadow-inner">
+        <i class="fa-solid fa-award"></i>
+      </div>
+
+      <div>
+        <span class="inline-block px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[11px] font-semibold rounded-full mb-1">연습 완료</span>
+        <h2 class="text-base font-bold text-slate-900">카페 주문 문장 네 개를 모두 연습했어요.</h2>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left space-y-1">
+        <h3 class="text-xs font-bold text-slate-800" id="summary-title">오늘의 기록</h3>
+        <p class="text-xs text-slate-600 leading-relaxed" id="summary-body">
+          총 0번 연습했고, 가장 높은 일치도는 0점이에요.
+        </p>
+      </div>
+
+      <p class="text-xs font-medium text-slate-500">
+        같은 표현을 실제 주문 상황에서도 사용해 보세요.
+      </p>
+
+      <button type="button" onclick="resetSession()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl transition shadow-sm">
+        처음부터 다시 보기
+      </button>
+    </div>
+
+    <!-- Bottom Learning Tip -->
+    <details class="bg-white rounded-xl border border-slate-200 p-3 text-xs text-slate-600 shadow-sm group">
+      <summary class="font-semibold text-slate-800 cursor-pointer list-none flex justify-between items-center">
+        <span><i class="fa-regular fa-lightbulb text-amber-500 mr-1.5"></i>주문할 때 기억할 점</span>
+        <i class="fa-solid fa-chevron-down text-slate-400 transition-transform group-open:rotate-180"></i>
+      </summary>
+      <p class="mt-2 text-slate-600 text-[11px] leading-relaxed pt-2 border-t border-slate-100">
+        수량 + 주세요를 함께 말하면 자연스럽습니다. 문장 끝을 너무 올리지 말고 또렷하게 말해 보세요.
+      </p>
+    </details>
+
+    <!-- Persistence & Debug Controls -->
+    <div class="bg-white rounded-xl border border-slate-200 p-3 text-xs text-slate-500 space-y-2">
+      <div class="flex justify-between items-center">
+        <span class="font-medium text-slate-700 text-[11px]">학습 상태 관리</span>
+        <div class="space-x-1">
+          <button type="button" onclick="downloadRecord()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium transition">
+            기록 내려받기
+          </button>
+          <button type="button" onclick="resetSession()" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[10px] font-medium transition">
+            초기화
+          </button>
+        </div>
+      </div>
+      <details class="text-[10px]">
+        <summary class="cursor-pointer text-slate-400 hover:text-slate-600">저장 상태 (JSON) 보기</summary>
+        <pre id="json-state-view" class="mt-1.5 p-2 bg-slate-900 text-slate-200 rounded overflow-x-auto text-[10px] font-mono leading-tight max-h-28"></pre>
+      </details>
+    </div>
+
+  </main>
+
+  <script>
+    // -------------------------------------------------------------
+    // CONSTANTS & FIXED ITEMS DATA
+    // -------------------------------------------------------------
+    const STORAGE_KEY = 'korean-speaking-demo.v1.pronunciation';
+    const ITEMS = [
+      { scene: '인사하기1', target: '안녕하세요.' },
+      { scene: '인사하기2', target: '만나서 반가워요.' },
+      { scene: '인사하기3', target: '안녕히 계세요.' },
+      { scene: '인사하기4', target: '안녕히 가세요.' }
+    ];
+
+    let state = {
+      index: 0,
+      typed: '',
+      attempts: [],
+      completed: false
+    };
+
+    let debounceTimer = null;
+    let recognition = null;
+    let isRecognizing = false;
+
+    // -------------------------------------------------------------
+    // LOCALSTORAGE STATE MANAGEMENT & VALIDATION
+    // -------------------------------------------------------------
+    function validateAndLoadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        
+        // Strict schema validation
+        if (
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          typeof parsed.index === 'number' &&
+          parsed.index >= 0 && parsed.index < ITEMS.length &&
+          typeof parsed.typed === 'string' &&
+          Array.isArray(parsed.attempts) &&
+          typeof parsed.completed === 'boolean'
+        ) {
+          state = parsed;
+        } else if (parsed && parsed.completed === true && Array.isArray(parsed.attempts)) {
+          state = parsed;
+        }
+      } catch (err) {
+        console.warn('Invalid storage state, preserving default state:', err);
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        updateDebugJsonView();
+      } catch (err) {
+        console.error('Failed to save state to localStorage:', err);
+      }
+    }
+
+    function updateDebugJsonView() {
+      const el = document.getElementById('json-state-view');
+      if (el) el.textContent = JSON.stringify(state, null, 2);
+    }
+
+    // -------------------------------------------------------------
+    // TEXT-TO-SPEECH (TTS)
+    // -------------------------------------------------------------
+    function playTTS(rate = 0.92) {
+      if (!('speechSynthesis' in window)) {
+        updateStatus('이 브라우저는 음성 합성을 지원하지 않습니다.', 'warn');
+        return;
+      }
+      window.speechSynthesis.cancel(); // Stop any active playback
+
+      const targetText = ITEMS[state.index].target;
+      const utterance = new SpeechSynthesisUtterance(targetText);
+      utterance.lang = 'ko-KR';
+      utterance.rate = rate;
+
+      utterance.onstart = () => {
+        updateStatus('모범 문장을 듣고 있습니다...', 'info');
+      };
+
+      utterance.onend = () => {
+        updateStatus('모범 문장을 듣고 같은 리듬으로 말해 보세요.', 'info');
+      };
+
+      utterance.onerror = () => {
+        updateStatus('음성 재생 중 오류가 발생했습니다.', 'warn');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // -------------------------------------------------------------
+    // SPEECH-TO-TEXT (STT)
+    // -------------------------------------------------------------
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return null;
+
+      const rec = new SpeechRecognition();
+      rec.lang = 'ko-KR';
+      rec.continuous = false;
+      rec.interimResults = true;
+
+      rec.onstart = () => {
+        isRecognizing = true;
+        updateRecordButtonUI(true);
+        updateStatus('듣고 있습니다... 말씀하세요.', 'info');
+      };
+
+      rec.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const currentText = finalTranscript || interimTranscript;
+        const inputEl = document.getElementById('typed-input');
+        if (inputEl && currentText) {
+          inputEl.value = currentText;
+          state.typed = currentText;
+          saveState();
+        }
+
+        if (finalTranscript) {
+          evaluateSpokenResult(finalTranscript);
+        }
+      };
+
+      rec.onerror = (event) => {
+        isRecognizing = false;
+        updateRecordButtonUI(false);
+        if (event.error !== 'no-speech') {
+          updateStatus(`음성 인식 오류: ${event.error}`, 'warn');
+        } else {
+          updateStatus('음성이 감지되지 않았습니다. 다시 시도하세요.', 'warn');
+        }
+      };
+
+      rec.onend = () => {
+        isRecognizing = false;
+        updateRecordButtonUI(false);
+      };
+
+      return rec;
+    }
+
+    function toggleSpeechRecognition() {
+      if (isRecognizing) {
+        if (recognition) recognition.stop();
+        return;
+      }
+
+      if (!recognition) {
+        recognition = initSpeechRecognition();
+      }
+
+      if (!recognition) {
+        updateStatus('이 브라우저는 음성 인식을 지원하지 않습니다. 아래 직접 입력을 이용해 주세요.', 'warn');
+        return;
+      }
+
+      try {
+        recognition.start();
+      } catch (e) {
+        console.warn('Speech recognition start error:', e);
+      }
+    }
+
+    function updateRecordButtonUI(recording) {
+      const btn = document.getElementById('btn-record');
+      const icon = document.getElementById('record-icon');
+      const text = document.getElementById('record-text');
+
+      if (recording) {
+        btn.className = "w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center justify-center space-x-2 animate-pulse";
+        icon.className = "fa-solid fa-stop text-sm";
+        text.textContent = "듣는 중... (클릭 시 중지)";
+      } else {
+        btn.className = "w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs rounded-xl shadow-sm hover:shadow transition flex items-center justify-center space-x-2";
+        icon.className = "fa-solid fa-microphone text-sm";
+        text.textContent = "내가 말하기";
+      }
+    }
+
+    // -------------------------------------------------------------
+    // SCORING & EVALUATION (Levenshtein Distance)
+    // -------------------------------------------------------------
+    function scoreSpeech(target, spoken) {
+      if (!spoken || !spoken.trim()) return 0;
+      
+      const cleanTarget = target.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, '').replace(/\s+/g, '').trim();
+      const cleanSpoken = spoken.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, '').replace(/\s+/g, '').trim();
+
+      if (!cleanSpoken) return 0;
+      if (cleanTarget === cleanSpoken) return 100;
+
+      const len1 = cleanTarget.length;
+      const len2 = cleanSpoken.length;
+      const dp = Array.from({ length: len1 + 1 }, () => Array(len2 + 1).fill(0));
+
+      for (let i = 0; i <= len1; i++) dp[i][0] = i;
+      for (let j = 0; j <= len2; j++) dp[0][j] = j;
+
+      for (let i = 1; i <= len1; i++) {
+        for (let j = 1; j <= len2; j++) {
+          const cost = cleanTarget[i - 1] === cleanSpoken[j - 1] ? 0 : 1;
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + cost
+          );
+        }
+      }
+
+      const distance = dp[len1][len2];
+      const maxLen = Math.max(len1, len2);
+      const similarity = Math.max(0, 1 - distance / maxLen);
+      return Math.round(similarity * 100);
+    }
+
+    function evaluateSpokenResult(spokenText) {
+      const currentTarget = ITEMS[state.index].target;
+      const score = scoreSpeech(currentTarget, spokenText);
+
+      // Save Attempt
+      const attemptRecord = {
+        index: state.index,
+        spoken: spokenText,
+        score: score,
+        at: new Date().toISOString()
+      };
+      state.attempts.push(attemptRecord);
+      saveState();
+
+      // UI Feedback
+      showResultBox(score);
+      const tone = score >= 85 ? 'good' : (score >= 50 ? 'warn' : 'bad');
+      updateStatus(`인식 문장: ${spokenText}`, tone);
+
+      // Enable Next Button
+      const nextBtn = document.getElementById('btn-next');
+      nextBtn.disabled = false;
+      nextBtn.className = "py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm";
+    }
+
+    function showResultBox(score) {
+      const box = document.getElementById('result-box');
+      const title = document.getElementById('result-title');
+      const tag = document.getElementById('result-tag');
+      const body = document.getElementById('result-body');
+
+      box.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-200', 'text-emerald-900', 'bg-amber-50', 'border-amber-200', 'text-amber-900', 'bg-rose-50', 'border-rose-200', 'text-rose-900');
+
+      title.textContent = `${score}점`;
+
+      if (score >= 85) {
+        box.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-900');
+        tag.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800';
+        tag.textContent = '우수';
+        body.textContent = '매우 훌륭해요! 발음과 문장이 정확합니다.';
+      } else if (score >= 50) {
+        box.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-900');
+        tag.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800';
+        tag.textContent = '보통';
+        body.textContent = '조금 아쉬워요. 단어와 받침 발음을 조금 더 신경 써 보세요.';
+      } else {
+        box.classList.add('bg-rose-50', 'border-rose-200', 'text-rose-900');
+        tag.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-200 text-rose-800';
+        tag.textContent = '재시도 권장';
+        body.textContent = '다시 한번 듣고 천천히 따라 말해 보세요.';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // MANUAL INPUT HANDLERS
+    // -------------------------------------------------------------
+    function handleManualSubmit() {
+      const inputEl = document.getElementById('typed-input');
+      const val = inputEl ? inputEl.value.trim() : '';
+
+      if (!val) {
+        updateStatus('문장을 입력한 뒤 확인하세요.', 'warn');
+        return;
+      }
+
+      evaluateSpokenResult(val);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const inputEl = document.getElementById('typed-input');
+      if (inputEl) {
+        // 350ms Debounce save
+        inputEl.addEventListener('input', (e) => {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            state.typed = e.target.value;
+            saveState();
+          }, 350);
+        });
+
+        inputEl.addEventListener('blur', syncAndSaveInput);
+      }
+    });
+
+    window.addEventListener('pagehide', syncAndSaveInput);
+
+    function syncAndSaveInput() {
+      const inputEl = document.getElementById('typed-input');
+      if (inputEl) {
+        state.typed = inputEl.value;
+        saveState();
+      }
+    }
+
+    // -------------------------------------------------------------
+    // NAVIGATION & RENDER
+    // -------------------------------------------------------------
+    function handleNextStep() {
+      if (state.index < ITEMS.length - 1) {
+        state.index += 1;
+        state.typed = '';
+        saveState();
+        renderCurrentView();
+      } else {
+        state.completed = true;
+        saveState();
+        renderCurrentView();
+      }
+    }
+
+    function renderCurrentView() {
+      const practiceCard = document.getElementById('practice-card');
+      const completionCard = document.getElementById('completion-card');
+
+      if (state.completed) {
+        practiceCard.classList.add('hidden');
+        completionCard.classList.remove('hidden');
+
+        // Calculate summary records
+        const totalAttempts = state.attempts.length;
+        const maxScore = totalAttempts > 0 
+          ? Math.max(...state.attempts.map(a => a.score))
+          : 0;
+
+        document.getElementById('summary-body').textContent = 
+          `총 ${totalAttempts}번 연습했고, 가장 높은 일치도는 ${maxScore}점이에요.`;
+        updateDebugJsonView();
+        return;
+      }
+
+      practiceCard.classList.remove('hidden');
+      completionCard.classList.add('hidden');
+
+      const currentItem = ITEMS[state.index];
+
+      // Update Header Badges & Progress Bar
+      document.getElementById('scene-badge').textContent = currentItem.scene;
+      document.getElementById('progress-text').textContent = `${state.index + 1} / ${ITEMS.length}`;
+      document.getElementById('progress-bar').style.width = `${((state.index + 1) / ITEMS.length) * 100}%`;
+
+      // Update Target Sentence
+      document.getElementById('target-sentence').textContent = currentItem.target;
+
+      // Update Typed Input
+      const inputEl = document.getElementById('typed-input');
+      if (inputEl) inputEl.value = state.typed || '';
+
+      // Next / Completion Button Text
+      const nextBtn = document.getElementById('btn-next');
+      if (state.index === ITEMS.length - 1) {
+        nextBtn.textContent = '결과 보기';
+      } else {
+        nextBtn.textContent = '다음 문장';
+      }
+
+      // Check existing attempts for current sentence
+      const currentAttempts = state.attempts.filter(a => a.index === state.index);
+
+      if (currentAttempts.length > 0) {
+        nextBtn.disabled = false;
+        nextBtn.className = "py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm";
+        
+        const lastAttempt = currentAttempts[currentAttempts.length - 1];
+        showResultBox(lastAttempt.score);
+        const tone = lastAttempt.score >= 85 ? 'good' : (lastAttempt.score >= 50 ? 'warn' : 'bad');
+        updateStatus(`인식 문장: ${lastAttempt.spoken}`, tone);
+      } else {
+        nextBtn.disabled = true;
+        nextBtn.className = "py-2 px-3 bg-slate-100 text-slate-400 text-xs font-medium rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed";
+        
+        document.getElementById('result-box').classList.add('hidden');
+        updateStatus('모범 문장을 먼저 들어 보세요.', 'info');
+      }
+
+      updateDebugJsonView();
+    }
+
+    // -------------------------------------------------------------
+    // STATUS AREA HELPER
+    // -------------------------------------------------------------
+    function updateStatus(message, type = 'info') {
+      const area = document.getElementById('status-area');
+      const icon = document.getElementById('status-icon');
+      const text = document.getElementById('status-text');
+
+      text.textContent = message;
+
+      area.className = "p-2.5 rounded-xl text-xs font-medium flex items-center space-x-2 transition-colors ";
+      if (type === 'good') {
+        area.className += "bg-emerald-50 text-emerald-800 border border-emerald-200";
+        icon.className = "fa-solid fa-circle-check text-emerald-500 text-xs shrink-0";
+      } else if (type === 'warn') {
+        area.className += "bg-amber-50 text-amber-800 border border-amber-200";
+        icon.className = "fa-solid fa-triangle-exclamation text-amber-500 text-xs shrink-0";
+      } else if (type === 'bad') {
+        area.className += "bg-rose-50 text-rose-800 border border-rose-200";
+        icon.className = "fa-solid fa-circle-xmark text-rose-500 text-xs shrink-0";
+      } else {
+        area.className += "bg-slate-100 text-slate-700";
+        icon.className = "fa-solid fa-circle-info text-slate-400 text-xs shrink-0";
+      }
+    }
+
+    // -------------------------------------------------------------
+    // SESSION RESET & DOWNLOAD
+    // -------------------------------------------------------------
+    function resetSession() {
+      state = {
+        index: 0,
+        typed: '',
+        attempts: [],
+        completed: false
+      };
+      saveState();
+      renderCurrentView();
+    }
+
+    function downloadRecord() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `korean_pronunciation_record_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // -------------------------------------------------------------
+    // INITIALIZATION ON LOAD
+    // -------------------------------------------------------------
+    window.onload = function() {
+      validateAndLoadState();
+      renderCurrentView();
+    };
+  </script>
+</body>
+</html>
