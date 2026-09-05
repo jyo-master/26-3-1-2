@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>자기소개하기 | 2인 대화형</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    
+    * {
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      box-sizing: border-box;
+    }
+
+    /* Pulse animation for active mic recording */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+      100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .recording-active {
+      animation: pulse-ring 1.5s infinite;
+      background-color: #ef4444 !important;
+      color: #ffffff !important;
+    }
+
+    /* Tablet Landscape 3-Column Grid Specification */
+    .pair-room {
+      display: grid;
+      grid-template-columns: minmax(178px, 0.72fr) minmax(430px, 1.8fr) minmax(178px, 0.72fr);
+      gap: 12px;
+      height: min(610px, calc(100dvh - 142px));
+      min-height: 520px;
+    }
+
+    /* Responsive fallbacks for smaller viewports <= 760px */
+    @media (max-width: 760px) {
+      .pair-room {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto 1fr;
+        height: auto;
+        min-height: 0;
+      }
+      .chat-col {
+        grid-column: span 2;
+        height: 500px;
+      }
+    }
+
+    /* Active Student Panel Highlighting */
+    .student-panel[data-active="true"] {
+      border: 2px solid #f59e0b !important; /* amber-500 */
+      box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.3), 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    .student-panel[data-active="false"] {
+      border: 1px solid #e2e8f0;
+      opacity: 0.85;
+    }
+
+    /* Chat bubble tail accents */
+    .bubble-nana {
+      position: relative;
+      background-color: #ffffff;
+      border-top-left-radius: 4px;
+    }
+    .bubble-nana::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -8px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid #ffffff;
+      border-left: 8px solid transparent;
+    }
+
+    .bubble-michael {
+      position: relative;
+      background-color: #fee500; /* Kakao Yellow */
+      border-top-right-radius: 4px;
+    }
+    .bubble-michael::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: -8px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid #fee500;
+      border-right: 8px solid transparent;
+    }
+
+    /* Current turn bubble ring highlight */
+    .bubble-current {
+      box-shadow: 0 0 0 4px #ffffff, 0 8px 20px rgba(0,0,0,0.15) !important;
+      z-index: 2;
+    }
+
+    /* Custom smooth scrolling for chat container */
+    .chat-scroll-area {
+      scroll-behavior: smooth;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .chat-scroll-area {
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body class="pair-tablet-page bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-amber-100 selection:text-amber-800">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-2.5 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="inline-block px-2.5 py-1 bg-amber-100 text-amber-800 font-bold rounded-lg text-xs">
+          1급 1과 · 친구와 자기소개하기
+        </span>
+        <h1 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight">차례에 맞춰 대화해요</h1>
+      </div>
+      <div class="text-xs sm:text-sm font-semibold text-slate-500 flex items-center gap-1.5">
+        <i class="fa-solid fa-tablet-screen-button text-indigo-500"></i>
+        <span>2인 대화형 · 태블릿 가로</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="max-w-6xl mx-auto w-full flex-1 px-3 py-2 sm:px-4 sm:py-3 flex flex-col justify-start gap-2">
+    
+    <!-- Instruction Subheader & Global Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-circle-info text-amber-500 text-sm shrink-0"></i>
+        <p class="text-xs sm:text-sm text-slate-600 font-medium">
+          노란 테두리가 켜진 학생이 자기 쪽 말하기 버튼을 누르세요.
+        </p>
+      </div>
+      
+      <!-- Shared Turn Transition Button (Top Bar) -->
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="btnTurnAction" type="button" onclick="handleTurnAction()" disabled class="w-full sm:w-auto px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-lg text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5">
+          <span id="turnActionLabel">다음 차례</span>
+          <i class="fa-solid fa-arrow-right text-xs" id="turnActionIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3-Column Tablet Layout -->
+    <div class="pair-room w-full">
+      
+      <!-- Left Panel: Nana Controls -->
+      <section id="panelNana" class="student-panel bg-white rounded-2xl p-3 flex flex-col justify-between transition-all" data-active="true">
+        <div class="flex flex-col gap-2">
+          <!-- Student Avatar & Header -->
+          <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+            <div class="w-9 h-9 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-sm shadow-sm shrink-0">
+              나
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between">
+                <h2 class="font-bold text-slate-900 text-sm">나나</h2>
+                <span class="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">1·3·5회</span>
+              </div>
+              <p class="text-[11px] text-slate-400 font-medium">차례 안내: 1 · 3 · 5번째 대사</p>
+            </div>
+          </div>
+
+          <!-- Status Message -->
+          <div id="statusNana" class="p-2 rounded-lg bg-slate-50 text-[11px] font-medium text-slate-600 border border-slate-100 min-h-[38px] flex items-center">
+            지금 내 대사를 말하세요.
+          </div>
+
+          <!-- Mic Speak Button -->
+          <button id="btnMicNana" type="button" onclick="handleMicClick('nana')" class="w-full py-2.5 px-3 bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-microphone text-xs" id="micIconNana"></i>
+            <span id="micLabelNana">나나 말하기 시작</span>
+          </button>
+
+          <!-- Direct Typed Input Collapsible -->
+          <details id="detailsNana" class="group text-xs border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+            <summary class="px-3 py-1.5 font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 select-none flex items-center justify-between text-[11px]">
+              <span>직접 입력</span>
+              <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-open:rotate-180 transition-transform"></i>
+            </summary>
+            <div class="p-2 pt-1 border-t border-slate-200 bg-white flex flex-col gap-1.5">
+              <textarea id="typedNana" placeholder="나나의 대사를 입력하세요" class="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none h-16 disabled:bg-slate-100 disabled:cursor-not-allowed"></textarea>
+              <button id="btnSubmitNana" type="button" onclick="handleTypedSubmit('nana')" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold rounded-lg transition-colors">
+                입력 확인
+              </button>
+            </div>
+          </details>
+        </div>
+
+        <div class="text-[10px] text-slate-400 text-center font-medium pt-1">
+          노란색 조작부 · 나나
+        </div>
+      </section>
+
+      <!-- Center Panel: KakaoTalk-Style Chat Window -->
+      <section class="chat-col bg-slate-200 rounded-2xl border border-slate-300 shadow-sm flex flex-col overflow-hidden">
+        
+        <!-- Chat Window Header -->
+        <div class="bg-slate-700 text-white px-3.5 py-2.5 flex items-center justify-between shrink-0 shadow-sm">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-comments text-amber-400 text-sm"></i>
+            <span class="font-bold text-xs sm:text-sm tracking-wide">자기소개 대화방</span>
+          </div>
+          <div id="chatProgress" class="text-[11px] font-bold text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-600">
+            현재 진행 1 / 5
+          </div>
+        </div>
+
+        <!-- Chat Bubble Scroll Area (#b2c7d9 Kakao Background) -->
+        <div id="chatWindow" class="chat-scroll-area flex-1 p-3.5 sm:p-4 overflow-y-auto flex flex-col gap-4" style="background-color: #b2c7d9;">
+          <!-- Chat bubbles dynamically rendered by JS -->
+        </div>
+
+        <!-- Chat Footer Status Banners -->
+        <div class="bg-white/95 backdrop-blur border-t border-slate-200 px-3.5 py-2 shrink-0 flex items-center justify-between text-xs">
+          <div id="chatStatusText" class="font-semibold text-slate-700 flex items-center gap-1.5 min-w-0">
+            <i class="fa-solid fa-circle-dot text-amber-500 text-[10px] shrink-0"></i>
+            <span class="truncate">나나가 1번째 대사를 말할 차례예요.</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Panel: Michael Controls -->
+      <section id="panelMichael" class="student-panel bg-white rounded-2xl p-3 flex flex-col justify-between transition-all" data-active="false">
+        <div class="flex flex-col gap-2">
+          <!-- Student Avatar & Header -->
+          <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+            <div class="w-9 h-9 rounded-full bg-pink-500 text-white font-black flex items-center justify-center text-sm shadow-sm shrink-0">
+              마
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between">
+                <h2 class="font-bold text-slate-900 text-sm">마이클</h2>
+                <span class="text-[10px] font-semibold text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded">2·4회</span>
+              </div>
+              <p class="text-[11px] text-slate-400 font-medium">차례 안내: 2 · 4번째 대사</p>
+            </div>
+          </div>
+
+          <!-- Status Message -->
+          <div id="statusMichael" class="p-2 rounded-lg bg-slate-50 text-[11px] font-medium text-slate-600 border border-slate-100 min-h-[38px] flex items-center">
+            상대의 차례를 기다리세요.
+          </div>
+
+          <!-- Mic Speak Button -->
+          <button id="btnMicMichael" type="button" disabled onclick="handleMicClick('michael')" class="w-full py-2.5 px-3 bg-pink-500 hover:bg-pink-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-microphone text-xs" id="micIconMichael"></i>
+            <span id="micLabelMichael">마이클 말하기 시작</span>
+          </button>
+
+          <!-- Direct Typed Input Collapsible -->
+          <details id="detailsMichael" class="group text-xs border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+            <summary class="px-3 py-1.5 font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 select-none flex items-center justify-between text-[11px]">
+              <span>직접 입력</span>
+              <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-open:rotate-180 transition-transform"></i>
+            </summary>
+            <div class="p-2 pt-1 border-t border-slate-200 bg-white flex flex-col gap-1.5">
+              <textarea id="typedMichael" placeholder="마이클의 대사를 입력하세요" disabled class="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all resize-none h-16 disabled:bg-slate-100 disabled:cursor-not-allowed"></textarea>
+              <button id="btnSubmitMichael" type="button" disabled onclick="handleTypedSubmit('michael')" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold rounded-lg transition-colors">
+                입력 확인
+              </button>
+            </div>
+          </details>
+        </div>
+
+        <div class="text-[10px] text-slate-400 text-center font-medium pt-1">
+          분홍색 조작부 · 마이클
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Lower Collapsible Information & LocalStorage Drawer -->
+    <details class="bg-white rounded-xl border border-slate-200 text-xs text-slate-600 overflow-hidden shadow-sm">
+      <summary class="px-3.5 py-2 font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none flex items-center justify-between">
+        <span class="flex items-center gap-1.5">
+          <i class="fa-solid fa-sliders text-indigo-500"></i>
+          <span>피드백 표시와 활동 기록</span>
+        </span>
+        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+      </summary>
+      <div class="px-3.5 pb-3 pt-2 border-t border-slate-100 leading-relaxed flex flex-col gap-3">
+        <p class="text-slate-600">
+          O는 문장이 잘 전달된 경우, △는 일부를 다시 말하면 좋은 경우, X는 모범 대사를 보고 다시 연습하면 좋은 경우입니다. 학생이 말한 내용은 원문 바로 아래에 표시됩니다.
+        </p>
+
+        <!-- Storage Controls -->
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+          <span class="text-[11px] text-slate-500 font-medium">PAGE_ID: pair · 학습 기록 저장소</span>
+          <div class="flex gap-2">
+            <button type="button" onclick="exportState()" class="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors shadow-sm">
+              기록 내려받기
+            </button>
+            <button type="button" onclick="resetState()" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors">
+              초기화
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="py-2 text-center text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+    2인 대화형 연습 시스템 · PAGE_ID: pair
+  </footer>
+
+  <script>
+    // System Constants & Storage Keys
+    const STORAGE_KEY = 'korean-speaking-demo.v1.pair';
+    const PAGE_ID = 'pair';
+
+    // Dialogue Lines Data Dataset (Exact 5 lines requirement)
+    const LINES = [
+      { speaker: 'nana', name: '나나', text: '안녕하세요? 저는 나나예요.' },
+      { speaker: 'michael', name: '마이클', text: '안녕하세요? 저는 마이클이에요.' },
+      { speaker: 'nana', name: '나나', text: '만나서 반가워요, 마이클 씨' },
+      { speaker: 'michael', name: '마이클', text: '반가워요. 나나 씨는 어느 나라 사람이에요?' },
+      { speaker: 'nana', name: '나나', text: '저는 중국 사람이에요.' }
+    ];
+
+    // Reactive State Structure
+    let state = {
+      turn: 0,
+      responses: {},
+      scores: {},
+      drafts: {},
+      completed: false
+    };
+
+    let recognition = null;
+    let isRecording = false;
+    let recordingSpeaker = null;
+
+    // Web Speech Recognition Setup
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ko-KR';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        updateMicButtonUI(true);
+        updateStatusMessage(recordingSpeaker, '음성을 듣고 있습니다...', 'info');
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const currentText = finalTranscript || interimTranscript;
+        if (currentText) {
+          const typedElem = document.getElementById(recordingSpeaker === 'nana' ? 'typedNana' : 'typedMichael');
+          if (typedElem) {
+            typedElem.value = currentText;
+            state.drafts[state.turn] = currentText;
+            saveState();
+          }
+        }
+
+        if (finalTranscript) {
+          processResponse(recordingSpeaker, finalTranscript.trim());
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        isRecording = false;
+        updateMicButtonUI(false);
+        if (event.error !== 'no-speech') {
+          updateStatusMessage(recordingSpeaker, '음성 인식을 완료하지 못했습니다. 직접 입력을 시도해 보세요.', 'warn');
+        }
+      };
+
+      recognition.onend = () => {
+        isRecording = false;
+        updateMicButtonUI(false);
+      };
+    }
+
+    // Load State with Robust Defensive Fallbacks
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+
+        // Defensive checks
+        state.responses = (parsed.responses && typeof parsed.responses === 'object') ? parsed.responses : {};
+        state.scores = (parsed.scores && typeof parsed.scores === 'object') ? parsed.scores : {};
+        state.drafts = (parsed.drafts && typeof parsed.drafts === 'object') ? parsed.drafts : {};
+        
+        let loadedTurn = typeof parsed.turn === 'number' ? parsed.turn : 0;
+        if (loadedTurn < 0) loadedTurn = 0;
+        if (loadedTurn > 4) loadedTurn = 4;
+        state.turn = loadedTurn;
+
+        // Backward compatibility: Convert response object { text: '...' } to string if needed
+        Object.keys(state.responses).forEach(k => {
+          if (typeof state.responses[k] === 'object' && state.responses[k] !== null && state.responses[k].text) {
+            state.responses[k] = state.responses[k].text;
+          }
+        });
+
+        // Verification of completed status against actual responses count (5 lines total)
+        const responseCount = Object.keys(state.responses).length;
+        if (parsed.completed === true && responseCount >= 5) {
+          state.completed = true;
+        } else {
+          state.completed = false;
+        }
+      } catch (e) {
+        console.error('Failed to parse localStorage state:', e);
+      }
+    }
+
+    // Save State to LocalStorage
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.error('Failed to save state:', e);
+      }
+    }
+
+    /**
+     * Speech Similarity Scoring Algorithm using Levenshtein Distance
+     */
+    function calculateScore(target, spoken) {
+      const cleanTarget = target.replace(/[^가-힣a-zA-Z0-9]/g, '');
+      const cleanSpoken = spoken.replace(/[^가-힣a-zA-Z0-9]/g, '');
+
+      if (!cleanSpoken) return 0;
+      if (cleanTarget === cleanSpoken) return 100;
+
+      const m = cleanTarget.length;
+      const n = cleanSpoken.length;
+      if (m === 0) return 0;
+
+      const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (cleanTarget[i - 1] === cleanSpoken[j - 1]) {
+            dp[i][j] = dp[i - 1][j - 1];
+          } else {
+            dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+          }
+        }
+      }
+
+      const dist = dp[m][n];
+      const maxLen = Math.max(m, n);
+      const similarity = Math.max(0, (1 - dist / maxLen) * 100);
+      return Math.round(similarity);
+    }
+
+    // Mic Click Handler
+    function handleMicClick(speaker) {
+      const currentSpeaker = LINES[state.turn].speaker;
+      if (speaker !== currentSpeaker || state.completed) return;
+
+      if (!recognition) {
+        updateStatusMessage(speaker, '이 브라우저는 음성 인식을 지원하지 않습니다. 직접 입력을 사용하세요.', 'warn');
+        return;
+      }
+
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        recordingSpeaker = speaker;
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error('Mic start error:', e);
+        }
+      }
+    }
+
+    function updateMicButtonUI(active) {
+      const btnMic = document.getElementById(recordingSpeaker === 'nana' ? 'btnMicNana' : 'btnMicMichael');
+      const micIcon = document.getElementById(recordingSpeaker === 'nana' ? 'micIconNana' : 'micIconMichael');
+      const micLabel = document.getElementById(recordingSpeaker === 'nana' ? 'micLabelNana' : 'micLabelMichael');
+      const speakerName = recordingSpeaker === 'nana' ? '나나' : '마이클';
+
+      if (!btnMic) return;
+
+      if (active) {
+        btnMic.classList.add('recording-active');
+        micIcon.className = 'fa-solid fa-stop text-xs';
+        micLabel.textContent = `${speakerName} 인식 중지`;
+      } else {
+        btnMic.classList.remove('recording-active');
+        micIcon.className = 'fa-solid fa-microphone text-xs';
+        micLabel.textContent = `${speakerName} 말하기 시작`;
+      }
+    }
+
+    // Typed Response Submit
+    function handleTypedSubmit(speaker) {
+      const currentSpeaker = LINES[state.turn].speaker;
+      if (speaker !== currentSpeaker || state.completed) return;
+
+      const typedElem = document.getElementById(speaker === 'nana' ? 'typedNana' : 'typedMichael');
+      const text = typedElem.value.trim();
+
+      if (!text) {
+        updateStatusMessage(speaker, '문장을 말하거나 직접 입력한 뒤 확인하세요.', 'warn');
+        return;
+      }
+
+      processResponse(speaker, text);
+    }
+
+    // Core Response Evaluator & State Saver
+    function processResponse(speaker, spokenText) {
+      // Guard against mismatched speakers
+      if (speaker !== LINES[state.turn].speaker) return;
+
+      const targetText = LINES[state.turn].text;
+      const score = calculateScore(targetText, spokenText);
+
+      state.responses[state.turn] = spokenText;
+      state.scores[state.turn] = score;
+      state.drafts[state.turn] = spokenText;
+
+      saveState();
+      render();
+
+      updateStatusMessage(speaker, '피드백을 확인하고 다시 말해도 좋아요.', 'good');
+    }
+
+    // Next Turn / Complete / Reset Action Handler
+    function handleTurnAction() {
+      if (state.completed) {
+        // Restart session
+        state.turn = 0;
+        state.responses = {};
+        state.scores = {};
+        state.drafts = {};
+        state.completed = false;
+        saveState();
+        render();
+        return;
+      }
+
+      if (!state.responses[state.turn]) return;
+
+      if (state.turn < 4) {
+        state.turn += 1;
+        saveState();
+        render();
+      } else {
+        // Completed 5th line
+        state.completed = true;
+        saveState();
+        render();
+      }
+    }
+
+    function updateStatusMessage(speaker, msg, tone = 'info') {
+      const statusElem = document.getElementById(speaker === 'nana' ? 'statusNana' : 'statusMichael');
+      if (!statusElem) return;
+
+      statusElem.textContent = msg;
+      statusElem.className = 'p-2 rounded-lg text-[11px] font-medium border min-h-[38px] flex items-center transition-colors ';
+
+      if (tone === 'good') {
+        statusElem.className += 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      } else if (tone === 'warn') {
+        statusElem.className += 'bg-amber-50 text-amber-800 border-amber-200';
+      } else {
+        statusElem.className += 'bg-slate-50 text-slate-600 border-slate-100';
+      }
+    }
+
+    // Render Function
+    function render() {
+      const currentLine = LINES[state.turn];
+      const activeSpeaker = state.completed ? null : currentLine.speaker;
+
+      // 1. Update Student Panels
+      const panelNana = document.getElementById('panelNana');
+      const panelMichael = document.getElementById('panelMichael');
+
+      const isNanaActive = activeSpeaker === 'nana';
+      const isMichaelActive = activeSpeaker === 'michael';
+
+      panelNana.setAttribute('data-active', isNanaActive ? 'true' : 'false');
+      panelMichael.setAttribute('data-active', isMichaelActive ? 'true' : 'false');
+
+      // Controls State - Nana
+      document.getElementById('btnMicNana').disabled = !isNanaActive;
+      document.getElementById('typedNana').disabled = !isNanaActive;
+      document.getElementById('btnSubmitNana').disabled = !isNanaActive;
+
+      // Controls State - Michael
+      document.getElementById('btnMicMichael').disabled = !isMichaelActive;
+      document.getElementById('typedMichael').disabled = !isMichaelActive;
+      document.getElementById('btnSubmitMichael').disabled = !isMichaelActive;
+
+      // Fill textarea drafts
+      document.getElementById('typedNana').value = state.drafts[0] || (state.responses[0] || '');
+      if (isNanaActive) {
+        document.getElementById('typedNana').value = state.drafts[state.turn] || (state.responses[state.turn] || '');
+      }
+
+      document.getElementById('typedMichael').value = state.drafts[1] || (state.responses[1] || '');
+      if (isMichaelActive) {
+        document.getElementById('typedMichael').value = state.drafts[state.turn] || (state.responses[state.turn] || '');
+      }
+
+      // Update Student Status Texts
+      if (state.completed) {
+        updateStatusMessage('nana', '대화를 모두 마쳤어요.', 'info');
+        updateStatusMessage('michael', '대화를 모두 마쳤어요.', 'info');
+      } else {
+        if (isNanaActive) {
+          const hasResp = state.responses[state.turn];
+          updateStatusMessage('nana', hasResp ? '피드백을 확인하고 다시 말해도 좋아요.' : '지금 내 대사를 말하세요.', hasResp ? 'good' : 'info');
+          updateStatusMessage('michael', '상대의 차례를 기다리세요.', 'info');
+        } else {
+          const hasResp = state.responses[state.turn];
+          updateStatusMessage('michael', hasResp ? '피드백을 확인하고 다시 말해도 좋아요.' : '지금 내 대사를 말하세요.', hasResp ? 'good' : 'info');
+          updateStatusMessage('nana', '상대의 차례를 기다리세요.', 'info');
+        }
+      }
+
+      // 2. Render KakaoTalk Chat Room Bubbles
+      const chatWindow = document.getElementById('chatWindow');
+      chatWindow.innerHTML = '';
+
+      LINES.forEach((line, index) => {
+        const isNana = line.speaker === 'nana';
+        const isCurrent = index === state.turn && !state.completed;
+        const isFuture = index > state.turn && !state.completed;
+
+        const responseText = state.responses[index];
+        const score = state.scores[index];
+
+        const bubbleContainer = document.createElement('div');
+        bubbleContainer.className = `flex flex-col ${isNana ? 'items-start' : 'items-end'} w-full transition-opacity duration-200`;
+        if (isCurrent) bubbleContainer.setAttribute('data-current', 'true');
+
+        // Set opacity for future/past/current
+        if (isFuture) {
+          bubbleContainer.style.opacity = '0.52';
+        } else {
+          bubbleContainer.style.opacity = '1.0';
+        }
+
+        // Speaker Name Label
+        const nameLabel = document.createElement('div');
+        nameLabel.className = `text-[11px] font-semibold text-slate-600 mb-1 px-1 ${isNana ? 'text-left' : 'text-right'}`;
+        nameLabel.textContent = line.name;
+        bubbleContainer.appendChild(nameLabel);
+
+        // Main Bubble Box
+        const bubbleBox = document.createElement('div');
+        bubbleBox.className = `max-w-[85%] sm:max-w-[80%] p-3 rounded-2xl text-slate-900 shadow-sm transition-all ${isNana ? 'bubble-nana' : 'bubble-michael'} ${isCurrent ? 'bubble-current' : ''}`;
+
+        // Feedback Grade Badge Calculation
+        let badgeHTML = '';
+        if (typeof score === 'number') {
+          let badgeSymbol = 'O';
+          let badgeBg = 'bg-emerald-600';
+          let badgeLabel = '완성도 O: 잘 전달됐어요';
+
+          if (score >= 85) {
+            badgeSymbol = 'O';
+            badgeBg = 'bg-emerald-600';
+            badgeLabel = '완성도 O: 잘 전달됐어요';
+          } else if (score >= 65) {
+            badgeSymbol = '△';
+            badgeBg = 'bg-amber-600';
+            badgeLabel = '완성도 △: 거의 전달됐어요';
+          } else {
+            badgeSymbol = 'X';
+            badgeBg = 'bg-rose-600';
+            badgeLabel = '완성도 X: 다시 말해 보세요';
+          }
+
+          badgeHTML = `
+            <div aria-label="${badgeLabel}" title="${badgeLabel}" class="absolute -top-2.5 ${isNana ? '-left-2.5' : '-right-2.5'} w-[27px] h-[27px] ${badgeBg} text-white font-extrabold text-xs rounded-full border-2 border-white flex items-center justify-center shadow-md z-10">
+              ${badgeSymbol}
+            </div>
+          `;
+        }
+
+        // Inside Content Structure (Exact required ordering)
+        let contentHTML = `
+          <div class="relative">
+            ${badgeHTML}
+            <div class="text-xs sm:text-[0.92rem] font-semibold text-slate-900 leading-snug tracking-wide">
+              ${line.text}
+            </div>
+          </div>
+        `;
+
+        if (responseText) {
+          contentHTML += `
+            <div class="mt-2 pt-2 border-t border-slate-300/60 text-xs">
+              <div class="text-[10px] font-medium text-slate-500 mb-0.5">학생 말하기</div>
+              <div class="font-medium text-slate-800 break-words">${escapeHTML(responseText)}</div>
+            </div>
+          `;
+        }
+
+        bubbleBox.innerHTML = contentHTML;
+        bubbleContainer.appendChild(bubbleBox);
+        chatWindow.appendChild(bubbleContainer);
+      });
+
+      // 3. Update Chat Progress & Bottom Bar Status
+      const chatProgress = document.getElementById('chatProgress');
+      const chatStatusText = document.getElementById('chatStatusText');
+
+      if (state.completed) {
+        chatProgress.textContent = '대화 완료';
+        
+        // Count O grades
+        const oCount = Object.values(state.scores).filter(s => s >= 85).length;
+        chatStatusText.innerHTML = `
+          <i class="fa-solid fa-circle-check text-emerald-500 text-xs shrink-0"></i>
+          <span>대화 완료 · O ${oCount}개 · 다시 연습할 수 있어요.</span>
+        `;
+      } else {
+        chatProgress.textContent = `현재 진행 ${state.turn + 1} / 5`;
+        const activeName = currentLine.name;
+        const hasCurrentResp = state.responses[state.turn];
+
+        if (hasCurrentResp) {
+          chatStatusText.innerHTML = `
+            <i class="fa-solid fa-circle-check text-emerald-500 text-xs shrink-0"></i>
+            <span>${activeName}의 말하기가 표시됐어요. 피드백을 확인하세요.</span>
+          `;
+        } else {
+          chatStatusText.innerHTML = `
+            <i class="fa-solid fa-circle-dot text-amber-500 text-xs shrink-0"></i>
+            <span>${activeName}이(가) ${state.turn + 1}번째 대사를 말할 차례예요.</span>
+          `;
+        }
+      }
+
+      // 4. Update Shared Turn Transition Button
+      const btnTurnAction = document.getElementById('btnTurnAction');
+      const turnActionLabel = document.getElementById('turnActionLabel');
+      const turnActionIcon = document.getElementById('turnActionIcon');
+
+      if (state.completed) {
+        btnTurnAction.disabled = false;
+        turnActionLabel.textContent = '처음부터 다시';
+        turnActionIcon.className = 'fa-solid fa-rotate-right text-xs';
+      } else {
+        const hasResp = !!state.responses[state.turn];
+        btnTurnAction.disabled = !hasResp;
+
+        if (state.turn === 4) {
+          turnActionLabel.textContent = '대화 마치기';
+          turnActionIcon.className = 'fa-solid fa-flag-checkered text-xs';
+        } else {
+          turnActionLabel.textContent = '다음 차례';
+          turnActionIcon.className = 'fa-solid fa-arrow-right text-xs';
+        }
+      }
+
+      // 5. Auto Smooth Scroll within Chat Window
+      requestAnimationFrame(() => {
+        scrollToCurrentBubble();
+      });
+    }
+
+    // Scroll calculation ensuring badge stays visible (18px offset top requirement)
+    function scrollToCurrentBubble() {
+      const chatWindow = document.getElementById('chatWindow');
+      if (!chatWindow) return;
+
+      const currentBubble = chatWindow.querySelector('[data-current="true"]');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (state.completed) {
+        // Scroll to bottom on completion
+        chatWindow.scrollTo({
+          top: chatWindow.scrollHeight,
+          behavior: reducedMotion ? 'auto' : 'smooth'
+        });
+        return;
+      }
+
+      if (currentBubble) {
+        const windowRect = chatWindow.getBoundingClientRect();
+        const currentRect = currentBubble.getBoundingClientRect();
+        const targetTop = Math.max(
+          0,
+          chatWindow.scrollTop + currentRect.top - windowRect.top - 18
+        );
+
+        chatWindow.scrollTo({
+          top: targetTop,
+          behavior: reducedMotion ? 'auto' : 'smooth'
+        });
+      }
+    }
+
+    // Helper: Escape HTML
+    function escapeHTML(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Storage Management Controls
+    function resetState() {
+      localStorage.removeItem(STORAGE_KEY);
+      state = {
+        turn: 0,
+        responses: {},
+        scores: {},
+        drafts: {},
+        completed: false
+      };
+      render();
+    }
+
+    function exportState() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `korean_pair_dialogue_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // Input draft listeners & page lifecycle handlers
+    ['typedNana', 'typedMichael'].forEach((id, idx) => {
+      const elem = document.getElementById(id);
+      if (!elem) return;
+
+      let debounceTimer = null;
+      elem.addEventListener('input', (e) => {
+        const speaker = idx === 0 ? 'nana' : 'michael';
+        if (LINES[state.turn].speaker === speaker) {
+          state.drafts[state.turn] = e.target.value;
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            saveState();
+          }, 300);
+        }
+      });
+
+      elem.addEventListener('blur', () => {
+        const speaker = idx === 0 ? 'nana' : 'michael';
+        if (LINES[state.turn].speaker === speaker) {
+          state.drafts[state.turn] = elem.value;
+          saveState();
+        }
+      });
+    });
+
+    // Save drafts on page hide & visibility change
+    const saveCurrentDraft = () => {
+      if (state.completed) return;
+      const speaker = LINES[state.turn].speaker;
+      const elem = document.getElementById(speaker === 'nana' ? 'typedNana' : 'typedMichael');
+      if (elem) {
+        state.drafts[state.turn] = elem.value;
+        saveState();
+      }
+    };
+
+    window.addEventListener('pagehide', saveCurrentDraft);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        saveCurrentDraft();
+      }
+    });
+
+    // Initialize application on window load
+    window.onload = function() {
+      loadState();
+      render();
+    };
+  </script>
+</body>
+</html>
