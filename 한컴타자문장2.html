@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>나만의 한컴타자연습 | 맞춤형 타자 교실</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    
+    body {
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+
+    /* Custom Animations & Highlights */
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    .cursor-blink {
+      animation: pulse-subtle 1s infinite;
+    }
+
+    /* Key strike highlight */
+    .char-correct {
+      color: #059669;
+      background-color: #ecfdf5;
+      border-bottom: 2px solid #10b981;
+    }
+    
+    .char-incorrect {
+      color: #dc2626;
+      background-color: #fef2f2;
+      border-bottom: 2px solid #ef4444;
+      font-weight: 700;
+    }
+    
+    .char-pending {
+      color: #64748b;
+    }
+
+    .char-current {
+      background-color: #e0e7ff;
+      color: #3730a3;
+      border-bottom: 2px solid #6366f1;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-indigo-100 selection:text-indigo-700">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20 px-3 py-2.5 sm:px-6">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 font-bold rounded-lg text-xs">
+          <i class="fa-solid fa-keyboard"></i>
+          한컴타자연습
+        </span>
+        <span class="text-xs text-slate-500 hidden sm:inline-block font-medium">| 우리반 맞춤 타자 교실</span>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <button id="btnSoundToggle" onclick="toggleSound()" type="button" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+          <i id="soundIcon" class="fa-solid fa-volume-high text-indigo-600"></i>
+          <span id="soundLabel" class="hidden sm:inline">효과음 켜짐</span>
+        </button>
+        
+        <button id="btnShareLink" onclick="copyShareLink()" type="button" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-lg text-xs transition-colors border border-emerald-200 flex items-center gap-1">
+          <i class="fa-solid fa-share-nodes"></i>
+          <span class="hidden sm:inline">링크 공유</span>
+        </button>
+
+        <button id="btnEditSentences" onclick="toggleTeacherModal(true)" type="button" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-lg text-xs transition-colors shadow-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-pen-to-square"></i>
+          <span>문장 편집하기</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-4xl mx-auto w-full flex-1 px-3 py-4 sm:p-6 flex flex-col justify-start">
+    
+    <!-- Title & Instruction Header -->
+    <div class="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <span>문장을 따라 써 보세요</span>
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-500 mt-0.5">선생님이 준비한 문장을 빠르고 정확하게 입력하세요. (엔터키를 누르면 다음 문장)</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="sentenceCounter" class="px-3 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold rounded-xl text-xs sm:text-sm">
+          1 / 3 문장
+        </span>
+      </div>
+    </div>
+
+    <!-- Main Grid: Left Stats Panel + Right Typing Practice Area -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+      
+      <!-- Left Panel: Typing Statistics (타수, 정확도, 진행률) -->
+      <div class="md:col-span-4 flex flex-col gap-3">
+        
+        <!-- Speed Card (타수 타/분) -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-lg">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+              <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">현재 타수</div>
+              <div class="flex items-baseline gap-1">
+                <span id="cpmText" class="text-2xl font-black text-slate-800">0</span>
+                <span class="text-xs text-slate-500 font-medium">타/분</span>
+              </div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] text-slate-400">최고 타수</div>
+            <div id="maxCpmText" class="text-xs font-bold text-indigo-600">0 타</div>
+          </div>
+        </div>
+
+        <!-- Accuracy Card (정확도 %) -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div id="accuracyBadge" class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-lg">
+              <i class="fa-solid fa-bullseye"></i>
+            </div>
+            <div>
+              <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">정확도</div>
+              <div class="flex items-baseline gap-1">
+                <span id="accuracyText" class="text-2xl font-black text-slate-800">100</span>
+                <span class="text-xs text-slate-500 font-medium">%</span>
+              </div>
+            </div>
+          </div>
+          <div class="w-16 bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div id="accuracyBar" class="bg-emerald-500 h-full w-full transition-all duration-300"></div>
+          </div>
+        </div>
+
+        <!-- Sentence List Overview Mini Card -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col gap-2">
+          <div class="flex justify-between items-center text-xs text-slate-500 font-semibold pb-1 border-b border-slate-100">
+            <span>연습 문장 목록</span>
+            <span id="listProgressBadge" class="text-indigo-600">진행중</span>
+          </div>
+          <div id="miniSentenceList" class="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1 text-xs text-slate-600">
+            <!-- Dynamic mini list -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Panel: Practice Card -->
+      <div id="practiceCard" class="md:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col gap-4">
+        
+        <!-- Overall Progress Bar -->
+        <div>
+          <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+            <span id="sceneBadge" class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold text-[11px]">한컴타자 실전 연습</span>
+            <span id="progressPercent" class="font-bold text-indigo-600">0% 완료</span>
+          </div>
+          <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div id="progressBar" class="bg-indigo-600 h-full w-0 transition-all duration-300"></div>
+          </div>
+        </div>
+
+        <!-- Target Sentence Display Block -->
+        <div class="bg-slate-50 rounded-2xl p-4 sm:p-6 border border-slate-200 text-center relative overflow-hidden flex flex-col justify-center min-h-[120px]">
+          <div class="text-[11px] text-indigo-500 font-semibold mb-2 flex items-center justify-center gap-1">
+            <i class="fa-solid fa-quote-left text-indigo-300"></i>
+            <span>따라 쓸 문장</span>
+            <i class="fa-solid fa-quote-right text-indigo-300"></i>
+          </div>
+          
+          <!-- Styled Target Text displaying typing feedback -->
+          <div id="targetDisplay" class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-wide leading-relaxed break-keep select-none">
+            <!-- Dynamic letters rendered here -->
+          </div>
+        </div>
+
+        <!-- Interactive Typing Input Area -->
+        <div class="flex flex-col gap-2">
+          <label for="typingInput" class="text-xs font-semibold text-slate-500 flex justify-between items-center">
+            <span>아래 입력창에 문장을 쓰세요 (Enter 키 = 다음)</span>
+            <span id="errorStatusText" class="text-rose-500 font-bold hidden">
+              <i class="fa-solid fa-circle-exclamation"></i> 오타가 있습니다!
+            </span>
+          </label>
+          
+          <div class="relative">
+            <input 
+              type="text" 
+              id="typingInput" 
+              autocomplete="off" 
+              autofocus 
+              placeholder="여기에 문장을 입력하세요..." 
+              class="w-full px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border-2 border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all font-medium text-slate-900 shadow-sm"
+            />
+            <button 
+              type="button" 
+              onclick="resetCurrentSentence()" 
+              title="다시 작성하기"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Action Bar -->
+        <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+          <button type="button" onclick="prevSentence()" id="btnPrev" disabled class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-chevron-left text-[10px]"></i>
+            <span>이전 문장</span>
+          </button>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="playTTS()" class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-volume-high text-xs"></i>
+              <span class="hidden sm:inline">문장 듣기</span>
+            </button>
+            <button type="button" onclick="nextSentence()" id="btnNext" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-xs transition-colors shadow-sm flex items-center gap-1.5">
+              <span>다음 문장</span>
+              <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Completion View Card (Hidden Initially) -->
+      <div id="completionCard" class="hidden md:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 flex flex-col gap-6 text-center">
+        <div class="flex justify-between items-center text-xs text-slate-500 border-b border-slate-100 pb-3">
+          <span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold">연습 완료</span>
+          <span class="font-bold text-emerald-600">참 잘했어요!</span>
+        </div>
+
+        <div class="py-2">
+          <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
+            <i class="fa-solid fa-trophy"></i>
+          </div>
+          <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">모든 문장 연습을 완료했습니다!</h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1">선생님이 준비한 모든 문장을 훌륭하게 입력했습니다.</p>
+        </div>
+
+        <!-- Result Summary Box -->
+        <div class="grid grid-cols-3 gap-3 bg-slate-50 rounded-2xl p-4 border border-slate-200">
+          <div class="flex flex-col items-center">
+            <span class="text-[11px] text-slate-400 font-semibold">평균 타수</span>
+            <span id="finalCpm" class="text-lg sm:text-2xl font-black text-indigo-600 mt-0.5">0 타/분</span>
+          </div>
+          <div class="flex flex-col items-center border-x border-slate-200">
+            <span class="text-[11px] text-slate-400 font-semibold">평균 정확도</span>
+            <span id="finalAccuracy" class="text-lg sm:text-2xl font-black text-emerald-600 mt-0.5">100 %</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-[11px] text-slate-400 font-semibold">소요 시간</span>
+            <span id="finalTime" class="text-lg sm:text-2xl font-black text-slate-800 mt-0.5">0초</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button type="button" onclick="restartSession()" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs sm:text-sm transition-colors shadow-sm">
+            다시 연습하기
+          </button>
+          <button type="button" onclick="toggleTeacherModal(true)" class="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition-colors">
+            새 문장 작성
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Learning Tips Section -->
+    <details class="mt-4 bg-white rounded-2xl border border-slate-200 text-xs text-slate-600 overflow-hidden shadow-sm">
+      <summary class="px-4 py-3 font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none flex items-center justify-between">
+        <span class="flex items-center gap-2">
+          <i class="fa-regular fa-lightbulb text-amber-500 text-sm"></i>
+          <span>한컴타자연습 바른 자세 및 팁</span>
+        </span>
+        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+      </summary>
+      <div class="px-4 pb-3.5 pt-2 border-t border-slate-100 text-slate-600 leading-relaxed grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="flex gap-2">
+          <i class="fa-solid fa-check text-indigo-500 mt-0.5"></i>
+          <span>등을 곧게 펴고 화면과 30cm 이상 거리를 유지하세요.</span>
+        </div>
+        <div class="flex gap-2">
+          <i class="fa-solid fa-check text-indigo-500 mt-0.5"></i>
+          <span>오타가 발생하면 빨간색 글씨로 표시되니 <kbd class="px-1 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px]">Backspace</kbd>로 수정하세요.</span>
+        </div>
+        <div class="flex gap-2">
+          <i class="fa-solid fa-check text-indigo-500 mt-0.5"></i>
+          <span>문장을 다 작성한 후 <kbd class="px-1 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px]">Enter</kbd> 누르면 바로 넘어갑니다.</span>
+        </div>
+        <div class="flex gap-2">
+          <i class="fa-solid fa-check text-indigo-500 mt-0.5"></i>
+          <span>선생님은 우측 상단의 [문장 편집하기]에서 연습시킬 문장을 바꿀 수 있습니다.</span>
+        </div>
+      </div>
+    </details>
+
+  </main>
+
+  <!-- Teacher Sentence Manager Modal -->
+  <div id="teacherModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl border border-slate-200 flex flex-col gap-4 animate-in fade-in zoom-in duration-200">
+      
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center text-sm font-bold">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm sm:text-base">선생님 문장 관리</h3>
+            <p class="text-[11px] text-slate-500">학생들이 연습할 문장을 한 줄에 하나씩 입력하세요.</p>
+          </div>
+        </div>
+        <button type="button" onclick="toggleTeacherModal(false)" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Textarea Input -->
+      <div>
+        <label for="teacherInputArea" class="block text-xs font-semibold text-slate-700 mb-1.5">
+          연습 문장 입력 (줄바꿈으로 구별)
+        </label>
+        <textarea 
+          id="teacherInputArea" 
+          rows="6" 
+          placeholder="안녕하십니까?&#10;저는 줄리앙입니다.&#10;저는 프랑스 사람입니다."
+          class="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono leading-relaxed"
+        ></textarea>
+      </div>
+
+      <!-- Preset Load Buttons -->
+      <div class="flex items-center justify-between gap-2">
+        <button type="button" onclick="loadDefaultSentences()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition-colors">
+          <i class="fa-solid fa-rotate-left mr-1"></i>기본 예시문장 불러오기
+        </button>
+        <span class="text-[11px] text-slate-400 font-medium" id="sentenceCountBadge">총 3개 문장</span>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <button type="button" onclick="toggleTeacherModal(false)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors">
+          취소
+        </button>
+        <button type="button" onclick="saveTeacherSentences()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-colors shadow-sm">
+          저장하고 연습 시작
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="py-3 text-center text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+    나만의 한컴타자연습 시스템 · 맞춤형 한글 타자 학습 환경
+  </footer>
+
+  <!-- Toast Notification for Link Copy -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg transition-opacity duration-300 opacity-0 pointer-events-none flex items-center gap-2 z-50">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastMsg">링크가 복사되었습니다!</span>
+  </div>
+
+  <script>
+    // LocalStorage Keys
+    const STORAGE_KEY_SENTENCES = 'hancom_custom_sentences_v4';
+    const STORAGE_KEY_MAX_CPM = 'hancom_max_cpm_v1';
+
+    // Default Sentences provided by teacher (36 items)
+    const DEFAULT_SENTENCES = [
+      "안녕하십니까?",
+      "저는 줄리앙입니다.",
+      "저는 프랑스 사람입니다.",
+      "저는 학생입니다.",
+      "만나서 반갑습니다.",
+      "저는 스티븐이에요.",
+      "한남대학교 학생이에요.",
+      "제 방이에요.",
+      "침대와 책상, 의자가 있어요.",
+      "컴퓨터가 있어요.",
+      "텔레비전과 냉장고는 없어요.",
+      "저는 룸메이트가 있어요.",
+      "제 룸메이트는 한국 사람이에요.",
+      "이름은 최정우예요.",
+      "정우는 여자 친구가 없어요.",
+      "스티븐 씨, 지금 뭐 해요?",
+      "지금 언어교육원에서 한국어를 배워요.",
+      "유진 씨는 뭐 해요?",
+      "도서관에서 공부해요.",
+      "저는 오늘 학생 식당에서 밥을 먹어요.",
+      "스티븐 씨는 어디에서 밥을 먹어요?",
+      "저는 학생 식당에서 안 먹어요.",
+      "오늘 정우 씨를 만나요.",
+      "서울식당에서 불고기를 먹어요.",
+      "저는 한국에서 잘 지내요.",
+      "저는 지금 제 방에 있어요.",
+      "제 방은 기숙사에 있어요.",
+      "제 방에는 침대하고 책상이 있어요.",
+      "책상 위에는 어머니하고 아버지 사진이 있어요.",
+      "저는 매일 그 사진을 봐요.",
+      "저는 언어교육원에서 한국어를 배워요.",
+      "우리 반에는 베트남 사람하고 인도 사람하고 한국 사람이 있어요.",
+      "오늘 저는 은행동에 가요.",
+      "은행동에서 우리 반 친구를 만나요.",
+      "그럼 안녕히 계세요.",
+      "사랑해요."
+    ];
+
+    // Reactive State Structure
+    let sentences = [];
+    let currentIdx = 0;
+    
+    // Typing Performance Tracking Variables
+    let startTime = null;
+    let totalKeystrokes = 0;
+    let errorKeystrokes = 0;
+    let currentCpm = 0;
+    let currentAccuracy = 100;
+    let maxCpm = 0;
+    let soundEnabled = true;
+
+    // Sentence level statistics
+    let sentenceStats = [];
+
+    // Audio Synthesizer (Web Audio API)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext();
+      }
+    }
+
+    function playKeySound(isError = false) {
+      if (!soundEnabled) return;
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (isError) {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.15);
+        } else {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.05);
+        }
+      } catch (e) {
+        // Fallback gracefully if audio blocked
+      }
+    }
+
+    /**
+     * Hangul Keystroke Calculator (Decomposes Hangul syllables into jamo counts)
+     * 초성, 중성, 종성 분해를 통해 한글 타수를 실제 키보드 입력 횟수로 변환
+     */
+    function getHangulKeystrokes(char) {
+      const code = char.charCodeAt(0);
+      // Check if Unicode falls in Hangul Syllable range (가 - 힣)
+      if (code >= 0xAC00 && code <= 0xD7A3) {
+        const index = code - 0xAC00;
+        const initial = Math.floor(index / 588);
+        const medial = Math.floor((index % 588) / 28);
+        const final = index % 28;
+
+        // 초성 타수 (쌍자음은 2)
+        const initialStroke = [1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1][initial] || 1;
+        // 중성 타수 (복합모음은 2~3)
+        const medialStroke = [1, 2, 2, 3, 2, 1, 2, 3, 3, 2, 1, 2, 3, 2, 1, 2, 3, 1, 2, 2, 1][medial] || 1;
+        // 종성 타수 (겹받침은 2)
+        const finalStroke = [0, 1, 2, 2, 1, 2, 2, 1, 1, 2, 3, 2, 3, 3, 2, 1, 2, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1][final] || 0;
+
+        return initialStroke + medialStroke + finalStroke;
+      }
+      return 1; // 영문, 숫자, 공백 등
+    }
+
+    function calculateTotalKeystrokes(text) {
+      let count = 0;
+      for (let i = 0; i < text.length; i++) {
+        count += getHangulKeystrokes(text[i]);
+      }
+      return count;
+    }
+
+    function loadSentences() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY_SENTENCES);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            sentences = parsed;
+          } else {
+            sentences = [...DEFAULT_SENTENCES];
+          }
+        } else {
+          sentences = [...DEFAULT_SENTENCES];
+        }
+
+        const storedMax = localStorage.getItem(STORAGE_KEY_MAX_CPM);
+        if (storedMax) {
+          maxCpm = parseInt(storedMax, 10) || 0;
+        }
+      } catch (e) {
+        sentences = [...DEFAULT_SENTENCES];
+      }
+
+      // 항상 학생 접속 시 1번째 문장부터 시작
+      currentIdx = 0;
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.textContent = message;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    function copyShareLink() {
+      const url = window.location.href;
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+          showToast('학생용 웹페이지 링크가 복사되었습니다!');
+        }).catch(() => {
+          fallbackCopyText(url);
+        });
+      } else {
+        fallbackCopyText(url);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const tempInput = document.createElement('input');
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showToast('학생용 웹페이지 링크가 복사되었습니다!');
+    }
+
+    function saveSentences() {
+      try {
+        localStorage.setItem(STORAGE_KEY_SENTENCES, JSON.stringify(sentences));
+      } catch (e) {
+        console.error('Failed to save sentences:', e);
+      }
+    }
+
+    function renderSentenceDisplay() {
+      const targetDisplay = document.getElementById('targetDisplay');
+      const typingInput = document.getElementById('typingInput');
+      const targetText = sentences[currentIdx] || '';
+      const currentInput = typingInput.value;
+
+      let html = '';
+      let hasError = false;
+
+      for (let i = 0; i < targetText.length; i++) {
+        const targetChar = targetText[i];
+        const inputChar = currentInput[i];
+
+        if (inputChar === undefined) {
+          // 아직 입력하지 않은 글자
+          if (i === currentInput.length) {
+            html += `<span class="char-current relative inline-block px-0.5 rounded">${targetChar === ' ' ? '&nbsp;' : targetChar}</span>`;
+          } else {
+            html += `<span class="char-pending">${targetChar === ' ' ? '&nbsp;' : targetChar}</span>`;
+          }
+        } else if (inputChar === targetChar) {
+          // 일치하는 글자
+          html += `<span class="char-correct px-0.5 rounded">${targetChar === ' ' ? '&nbsp;' : targetChar}</span>`;
+        } else {
+          // 틀린 글자 (빨간 글씨 하이라이트)
+          hasError = true;
+          html += `<span class="char-incorrect px-0.5 rounded">${targetChar === ' ' ? '&nbsp;' : targetChar}</span>`;
+        }
+      }
+
+      // 목표 문장보다 더 길게 입력한 경우
+      if (currentInput.length > targetText.length) {
+        hasError = true;
+        const extraText = currentInput.slice(targetText.length);
+        html += `<span class="char-incorrect px-0.5 rounded">${extraText}</span>`;
+      }
+
+      targetDisplay.innerHTML = html;
+
+      // Error Alert Display
+      const errorStatusText = document.getElementById('errorStatusText');
+      if (hasError) {
+        errorStatusText.classList.remove('hidden');
+      } else {
+        errorStatusText.classList.add('hidden');
+      }
+
+      return hasError;
+    }
+
+    function updateStats() {
+      if (!startTime) {
+        document.getElementById('cpmText').textContent = '0';
+        document.getElementById('accuracyText').textContent = '100';
+        document.getElementById('accuracyBar').style.width = '100%';
+        return;
+      }
+
+      const elapsedMinutes = (Date.now() - startTime) / 60000;
+      const currentInput = document.getElementById('typingInput').value;
+      const typedKeystrokes = calculateTotalKeystrokes(currentInput);
+
+      // 타 수/분 계산
+      if (elapsedMinutes > 0 && typedKeystrokes > 0) {
+        currentCpm = Math.round(typedKeystrokes / elapsedMinutes);
+      } else {
+        currentCpm = 0;
+      }
+
+      // 정확도 계산
+      const targetText = sentences[currentIdx] || '';
+      let correctChars = 0;
+      for (let i = 0; i < currentInput.length; i++) {
+        if (i < targetText.length && currentInput[i] === targetText[i]) {
+          correctChars++;
+        }
+      }
+
+      if (currentInput.length > 0) {
+        currentAccuracy = Math.max(0, Math.round((correctChars / currentInput.length) * 100));
+      } else {
+        currentAccuracy = 100;
+      }
+
+      // UI Update
+      document.getElementById('cpmText').textContent = currentCpm;
+      document.getElementById('accuracyText').textContent = currentAccuracy;
+      document.getElementById('accuracyBar').style.width = `${currentAccuracy}%`;
+
+      if (currentCpm > maxCpm) {
+        maxCpm = currentCpm;
+        localStorage.setItem(STORAGE_KEY_MAX_CPM, maxCpm.toString());
+        document.getElementById('maxCpmText').textContent = `${maxCpm} 타`;
+      }
+    }
+
+    function handleTypingInput(e) {
+      if (!startTime && e.target.value.length > 0) {
+        startTime = Date.now();
+      }
+
+      const hasError = renderSentenceDisplay();
+      playKeySound(hasError);
+      updateStats();
+    }
+
+    function handleKeyDown(e) {
+      // 엔터키를 눌렀을 때 다음 문장으로 이동
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const typingInput = document.getElementById('typingInput');
+        const targetText = sentences[currentIdx] || '';
+
+        // 정답을 정확히 쳤거나 엔터를 눌렀을 때
+        nextSentence();
+      }
+    }
+
+    function nextSentence() {
+      const typingInput = document.getElementById('typingInput');
+      const targetText = sentences[currentIdx] || '';
+      const userText = typingInput.value;
+
+      // Save sentence stats
+      sentenceStats.push({
+        sentence: targetText,
+        userText: userText,
+        cpm: currentCpm,
+        accuracy: currentAccuracy
+      });
+
+      if (currentIdx < sentences.length - 1) {
+        currentIdx++;
+        resetSentenceInput();
+      } else {
+        // All sentences completed! Show summary card
+        showCompletionCard();
+      }
+    }
+
+    function prevSentence() {
+      if (currentIdx > 0) {
+        currentIdx--;
+        resetSentenceInput();
+      }
+    }
+
+    function resetCurrentSentence() {
+      resetSentenceInput();
+    }
+
+    function resetSentenceInput() {
+      const typingInput = document.getElementById('typingInput');
+      typingInput.value = '';
+      startTime = null;
+      currentCpm = 0;
+      currentAccuracy = 100;
+      render();
+      typingInput.focus();
+    }
+
+    function playTTS() {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(sentences[currentIdx]);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const icon = document.getElementById('soundIcon');
+      const label = document.getElementById('soundLabel');
+      if (soundEnabled) {
+        icon.className = 'fa-solid fa-volume-high text-indigo-600';
+        label.textContent = '효과음 켜짐';
+      } else {
+        icon.className = 'fa-solid fa-volume-xmark text-slate-400';
+        label.textContent = '효과음 끔';
+      }
+    }
+
+    function toggleTeacherModal(show) {
+      const modal = document.getElementById('teacherModal');
+      const area = document.getElementById('teacherInputArea');
+      
+      if (show) {
+        area.value = sentences.join('\n');
+        updateSentenceCountBadge();
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+        document.getElementById('typingInput').focus();
+      }
+    }
+
+    function updateSentenceCountBadge() {
+      const area = document.getElementById('teacherInputArea');
+      const lines = area.value.split('\n').filter(l => l.trim().length > 0);
+      document.getElementById('sentenceCountBadge').textContent = `총 ${lines.length}개 문장`;
+    }
+
+    function loadDefaultSentences() {
+      const area = document.getElementById('teacherInputArea');
+      area.value = DEFAULT_SENTENCES.join('\n');
+      updateSentenceCountBadge();
+    }
+
+    function saveTeacherSentences() {
+      const area = document.getElementById('teacherInputArea');
+      const lines = area.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      
+      if (lines.length === 0) {
+        alert('최소 한 개 이상의 문장을 입력해 주세요.');
+        return;
+      }
+
+      sentences = lines;
+      saveSentences();
+      currentIdx = 0;
+      sentenceStats = [];
+      
+      toggleTeacherModal(false);
+      restartSession();
+    }
+
+    function showCompletionCard() {
+      document.getElementById('practiceCard').classList.add('hidden');
+      document.getElementById('completionCard').classList.remove('hidden');
+
+      // Calculate averages
+      let totalCpm = 0;
+      let totalAcc = 0;
+      sentenceStats.forEach(s => {
+        totalCpm += s.cpm;
+        totalAcc += s.accuracy;
+      });
+
+      const avgCpm = sentenceStats.length > 0 ? Math.round(totalCpm / sentenceStats.length) : 0;
+      const avgAcc = sentenceStats.length > 0 ? Math.round(totalAcc / sentenceStats.length) : 100;
+
+      document.getElementById('finalCpm').textContent = `${avgCpm} 타/분`;
+      document.getElementById('finalAccuracy').textContent = `${avgAcc} %`;
+      document.getElementById('finalTime').textContent = `${sentenceStats.length * 5}초`; // Estimated
+      document.getElementById('listProgressBadge').textContent = '완료됨';
+    }
+
+    function restartSession() {
+      currentIdx = 0;
+      sentenceStats = [];
+      document.getElementById('practiceCard').classList.remove('hidden');
+      document.getElementById('completionCard').classList.add('hidden');
+      document.getElementById('listProgressBadge').textContent = '진행중';
+      resetSentenceInput();
+    }
+
+    function renderMiniSentenceList() {
+      const container = document.getElementById('miniSentenceList');
+      container.innerHTML = '';
+
+      sentences.forEach((s, idx) => {
+        const isCurrent = idx === currentIdx;
+        const isPast = idx < currentIdx;
+
+        let badgeClass = 'text-slate-400 bg-slate-50';
+        let iconHtml = '<i class="fa-regular fa-circle text-[10px]"></i>';
+
+        if (isCurrent) {
+          badgeClass = 'text-indigo-700 font-bold bg-indigo-50 border border-indigo-100';
+          iconHtml = '<i class="fa-solid fa-pen text-[10px] text-indigo-600"></i>';
+        } else if (isPast) {
+          badgeClass = 'text-emerald-700 bg-emerald-50';
+          iconHtml = '<i class="fa-solid fa-circle-check text-[10px] text-emerald-500"></i>';
+        }
+
+        const div = document.createElement('div');
+        div.className = `p-2 rounded-lg flex items-center justify-between text-xs transition-all ${badgeClass}`;
+        div.innerHTML = `
+          <div class="flex items-center gap-2 truncate">
+            ${iconHtml}
+            <span class="truncate">${s}</span>
+          </div>
+          <span class="text-[10px] opacity-75 shrink-0">${idx + 1}</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function render() {
+      if (sentences.length === 0) return;
+
+      // Update counters
+      document.getElementById('sentenceCounter').textContent = `${currentIdx + 1} / ${sentences.length} 문장`;
+      document.getElementById('progressPercent').textContent = `${Math.round(((currentIdx) / sentences.length) * 100)}% 완료`;
+      document.getElementById('progressBar').style.width = `${((currentIdx) / sentences.length) * 100}%`;
+      document.getElementById('maxCpmText').textContent = `${maxCpm} 타`;
+
+      // Buttons active status
+      document.getElementById('btnPrev').disabled = (currentIdx === 0);
+      
+      const btnNext = document.getElementById('btnNext');
+      if (currentIdx === sentences.length - 1) {
+        btnNext.innerHTML = '<span>완료하기</span> <i class="fa-solid fa-check text-[10px]"></i>';
+      } else {
+        btnNext.innerHTML = '<span>다음 문장</span> <i class="fa-solid fa-chevron-right text-[10px]"></i>';
+      }
+
+      renderSentenceDisplay();
+      renderMiniSentenceList();
+      updateStats();
+    }
+
+    // Event Listeners Setup
+    window.onload = function() {
+      loadSentences();
+      
+      const typingInput = document.getElementById('typingInput');
+      typingInput.addEventListener('input', handleTypingInput);
+      typingInput.addEventListener('keydown', handleKeyDown);
+
+      const area = document.getElementById('teacherInputArea');
+      area.addEventListener('input', updateSentenceCountBadge);
+
+      render();
+      typingInput.focus();
+    };
+  </script>
+</body>
+</html>
