@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>날짜 말하기 / 2인 대화형</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    
+    * {
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      box-sizing: border-box;
+    }
+
+    /* Pulse animation for active mic recording */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+      100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .recording-active {
+      animation: pulse-ring 1.5s infinite;
+      background-color: #ef4444 !important;
+      color: #ffffff !important;
+    }
+
+    /* Tablet Landscape 3-Column Grid Layout */
+    .pair-room {
+      display: grid;
+      grid-template-columns: minmax(178px, 0.72fr) minmax(430px, 1.8fr) minmax(178px, 0.72fr);
+      gap: 12px;
+      height: min(620px, calc(100dvh - 142px));
+      min-height: 520px;
+    }
+
+    /* Responsive fallback layout for smaller viewports <= 760px */
+    @media (max-width: 760px) {
+      .pair-room {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto 1fr;
+        height: auto;
+        min-height: 0;
+      }
+      .chat-col {
+        grid-column: span 2;
+        height: 510px;
+      }
+    }
+
+    /* Active Student Panel Highlighting */
+    .student-panel[data-active="true"] {
+      border: 2px solid #f59e0b !important; /* amber-500 */
+      box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.3), 0 4px 12px rgba(0, 0, 0, 0.05);
+      opacity: 1;
+    }
+    .student-panel[data-active="false"] {
+      border: 1px solid #e2e8f0;
+      opacity: 0.85;
+    }
+
+    /* Chat bubble tail accents */
+    .bubble-minsoo {
+      position: relative;
+      background-color: #ffffff;
+      border-top-left-radius: 4px;
+    }
+    .bubble-minsoo::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -8px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid #ffffff;
+      border-left: 8px solid transparent;
+    }
+
+    .bubble-akira {
+      position: relative;
+      background-color: #fee500; /* Kakao Yellow */
+      border-top-right-radius: 4px;
+    }
+    .bubble-akira::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: -8px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid #fee500;
+      border-right: 8px solid transparent;
+    }
+
+    /* Current turn bubble ring highlight */
+    .bubble-current {
+      box-shadow: 0 0 0 4px #ffffff, 0 8px 20px rgba(0,0,0,0.15) !important;
+      z-index: 2;
+    }
+
+    /* Smooth scrolling */
+    .chat-scroll-area {
+      scroll-behavior: smooth;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .chat-scroll-area {
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body class="pair-tablet-page bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-amber-100 selection:text-amber-800">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-2.5 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="inline-block px-2.5 py-1 bg-amber-100 text-amber-800 font-bold rounded-lg text-xs">
+          1급 5과 친구와 말하기
+        </span>
+        <h1 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight">1급 5과 말하기1</h1>
+      </div>
+      <div class="text-xs sm:text-sm font-semibold text-slate-500 flex items-center gap-1.5">
+        <i class="fa-solid fa-tablet-screen-button text-indigo-500"></i>
+        <span>2인 대화형 · 태블릿 가로</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="max-w-6xl mx-auto w-full flex-1 px-3 py-2 sm:px-4 sm:py-3 flex flex-col justify-start gap-2">
+    
+    <!-- Instruction Subheader & Dialogue Step Progress -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-circle-info text-amber-500 text-sm shrink-0"></i>
+        <p class="text-xs sm:text-sm text-slate-600 font-medium">
+          노란 테두리가 켜진 학생이 자기 쪽 말하기 버튼을 누르세요.
+        </p>
+      </div>
+      
+      <!-- Shared Dialogue Stage & Turn Transition Button -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div id="dialogueStepBadge" class="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-indigo-600">
+          대화 1 / 4
+        </div>
+        <button id="btnTurnAction" type="button" onclick="handleTurnAction()" disabled class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-lg text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5">
+          <span id="turnActionLabel">다음 차례</span>
+          <i class="fa-solid fa-arrow-right text-xs" id="turnActionIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3-Column Tablet Layout -->
+    <div class="pair-room w-full">
+      
+      <!-- Left Panel: Minsoo Controls -->
+      <section id="panelMinsoo" class="student-panel bg-white rounded-2xl p-3 flex flex-col justify-between transition-all" data-active="true">
+        <div class="flex flex-col gap-2">
+          <!-- Student Avatar & Header -->
+          <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+            <div class="w-9 h-9 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-sm shadow-sm shrink-0">
+              민
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between">
+                <h2 class="font-bold text-slate-900 text-sm">민수</h2>
+                <span class="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">1·3·4회</span>
+              </div>
+              <p class="text-[11px] text-slate-400 font-medium">차례 안내: 1 · 3 · 4번째 대사</p>
+            </div>
+          </div>
+
+          <!-- Status Message -->
+          <div id="statusMinsoo" class="p-2 rounded-lg bg-slate-50 text-[11px] font-medium text-slate-600 border border-slate-100 min-h-[38px] flex items-center">
+            지금 내 대사를 말하세요.
+          </div>
+
+          <!-- Mic Speak Button -->
+          <button id="btnMicMinsoo" type="button" onclick="handleMicClick('minsoo')" class="w-full py-2.5 px-3 bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-microphone text-xs" id="micIconMinsoo"></i>
+            <span id="micLabelMinsoo">민수 말하기 시작</span>
+          </button>
+
+          <!-- Direct Typed Input Collapsible -->
+          <details id="detailsMinsoo" class="group text-xs border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+            <summary class="px-3 py-1.5 font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 select-none flex items-center justify-between text-[11px]">
+              <span>직접 입력</span>
+              <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-open:rotate-180 transition-transform"></i>
+            </summary>
+            <div class="p-2 pt-1 border-t border-slate-200 bg-white flex flex-col gap-1.5">
+              <label for="typedMinsoo" class="sr-only">민수 대사 입력</label>
+              <textarea id="typedMinsoo" placeholder="민수의 대사를 입력하세요" class="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none h-16 disabled:bg-slate-100 disabled:cursor-not-allowed"></textarea>
+              <button id="btnSubmitMinsoo" type="button" onclick="handleTypedSubmit('minsoo')" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold rounded-lg transition-colors">
+                입력 확인
+              </button>
+            </div>
+          </details>
+        </div>
+
+        <div class="text-[10px] text-slate-400 text-center font-medium pt-1">
+          노란색 조작부 · 민수
+        </div>
+      </section>
+
+      <!-- Center Panel: KakaoTalk-Style Chat Window -->
+      <section class="chat-col bg-slate-200 rounded-2xl border border-slate-300 shadow-sm flex flex-col overflow-hidden">
+        
+        <!-- Chat Window Header -->
+        <div class="bg-slate-700 text-white px-3.5 py-2.5 flex items-center justify-between shrink-0 shadow-sm">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-comments text-amber-400 text-sm"></i>
+            <span class="font-bold text-xs sm:text-sm tracking-wide" id="chatHeaderTitle">대화방 1 (5월 9일 파티)</span>
+          </div>
+          <div id="chatProgress" class="text-[11px] font-bold text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-600">
+            현재 진행 1 / 7
+          </div>
+        </div>
+
+        <!-- Chat Bubble Scroll Area -->
+        <div id="chatWindow" class="chat-scroll-area flex-1 p-3.5 sm:p-4 overflow-y-auto flex flex-col gap-3.5" style="background-color: #b2c7d9;">
+          <!-- Chat bubbles rendered dynamically -->
+        </div>
+
+        <!-- Chat Footer Status Banners -->
+        <div class="bg-white/95 backdrop-blur border-t border-slate-200 px-3.5 py-2 shrink-0 flex items-center justify-between text-xs">
+          <div id="chatStatusText" class="font-semibold text-slate-700 flex items-center gap-1.5 min-w-0">
+            <i class="fa-solid fa-circle-dot text-amber-500 text-[10px] shrink-0"></i>
+            <span class="truncate">민수가 1번째 대사를 말할 차례예요.</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Panel: Akira Controls -->
+      <section id="panelAkira" class="student-panel bg-white rounded-2xl p-3 flex flex-col justify-between transition-all" data-active="false">
+        <div class="flex flex-col gap-2">
+          <!-- Student Avatar & Header -->
+          <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+            <div class="w-9 h-9 rounded-full bg-pink-500 text-white font-black flex items-center justify-center text-sm shadow-sm shrink-0">
+              아
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between">
+                <h2 class="font-bold text-slate-900 text-sm">아키라</h2>
+                <span class="text-[10px] font-semibold text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded">2·5·6·7회</span>
+              </div>
+              <p class="text-[11px] text-slate-400 font-medium">차례 안내: 2 · 5 · 6 · 7번째 대사</p>
+            </div>
+          </div>
+
+          <!-- Status Message -->
+          <div id="statusAkira" class="p-2 rounded-lg bg-slate-50 text-[11px] font-medium text-slate-600 border border-slate-100 min-h-[38px] flex items-center">
+            상대의 차례를 기다리세요.
+          </div>
+
+          <!-- Mic Speak Button -->
+          <button id="btnMicAkira" type="button" disabled onclick="handleMicClick('akira')" class="w-full py-2.5 px-3 bg-pink-500 hover:bg-pink-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-microphone text-xs" id="micIconAkira"></i>
+            <span id="micLabelAkira">아키라 말하기 시작</span>
+          </button>
+
+          <!-- Direct Typed Input Collapsible -->
+          <details id="detailsAkira" class="group text-xs border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+            <summary class="px-3 py-1.5 font-semibold text-slate-600 cursor-pointer hover:bg-slate-100 select-none flex items-center justify-between text-[11px]">
+              <span>직접 입력</span>
+              <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-open:rotate-180 transition-transform"></i>
+            </summary>
+            <div class="p-2 pt-1 border-t border-slate-200 bg-white flex flex-col gap-1.5">
+              <label for="typedAkira" class="sr-only">아키라 대사 입력</label>
+              <textarea id="typedAkira" placeholder="아키라의 대사를 입력하세요" disabled class="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all resize-none h-16 disabled:bg-slate-100 disabled:cursor-not-allowed"></textarea>
+              <button id="btnSubmitAkira" type="button" disabled onclick="handleTypedSubmit('akira')" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold rounded-lg transition-colors">
+                입력 확인
+              </button>
+            </div>
+          </details>
+        </div>
+
+        <div class="text-[10px] text-slate-400 text-center font-medium pt-1">
+          분홍색 조작부 · 아키라
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Lower Collapsible Information Drawer -->
+    <details class="bg-white rounded-xl border border-slate-200 text-xs text-slate-600 overflow-hidden shadow-sm">
+      <summary class="px-3.5 py-2 font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none flex items-center justify-between">
+        <span class="flex items-center gap-1.5">
+          <i class="fa-solid fa-sliders text-indigo-500"></i>
+          <span>피드백 표시 안내</span>
+        </span>
+        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+      </summary>
+      <div class="px-3.5 pb-3 pt-2 border-t border-slate-100 leading-relaxed flex flex-col gap-3">
+        <p class="text-slate-600">
+          O는 문장이 잘 전달된 경우, △는 일부를 다시 말하면 좋은 경우, X는 모범 대사를 보고 다시 연습하면 좋은 경우입니다. 학생이 말한 내용은 원문 바로 아래에 표시됩니다.
+        </p>
+      </div>
+    </details>
+
+  </main>
+
+  <!-- Completion Modal "잘했어요!" -->
+  <div id="completionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-center border border-slate-100 animate-bounce-short">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
+        <i class="fa-solid fa-award"></i>
+      </div>
+      <h2 class="text-2xl font-black text-slate-900 mb-1">잘했어요! 🎉</h2>
+      <p class="text-xs sm:text-sm text-slate-600 mb-5 leading-relaxed">
+        4개의 날짜 대화를 모두 훌륭하게 마쳤습니다.<br />친구와 함께 다시 연습해 보세요!
+      </p>
+      <button type="button" onclick="restartAllDialogues()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-sm transition-all shadow-md">
+        처음부터 다시 하기
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="py-2 text-center text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+    1급 5과 말하기1 · 날짜 말하기 / 2인 대화형
+  </footer>
+
+  <script>
+    // 4 Dialogue Datasets strictly adhering to turn requirements:
+    // Minsoo (민수) turns: 1, 3, 4 (0-based index: 0, 2, 3)
+    // Akira (아키라) turns: 2, 5, 6, 7 (0-based index: 1, 4, 5, 6)
+    const DIALOGUES = [
+      {
+        title: '대화 1 (5월 9일)',
+        lines: [
+          { speaker: 'minsoo', name: '민수', text: '5월 9일에 시간이 있어요?' },
+          { speaker: 'akira', name: '아키라', text: '9일이 무슨 요일이에요?' },
+          { speaker: 'minsoo', name: '민수', text: '금요일이에요.' },
+          { speaker: 'minsoo', name: '민수', text: '금요일에 파티가 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '아, 미안해요.' },
+          { speaker: 'akira', name: '아키라', text: '금요일에는 약속이 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '친구하고 같이 영화를 봐요.' }
+        ]
+      },
+      {
+        title: '대화 2 (6월 20일)',
+        lines: [
+          { speaker: 'minsoo', name: '민수', text: '6월 20일에 시간이 있어요?' },
+          { speaker: 'akira', name: '아키라', text: '20일이 무슨 요일이에요?' },
+          { speaker: 'minsoo', name: '민수', text: '월요일이에요.' },
+          { speaker: 'minsoo', name: '민수', text: '월요일에 파티가 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '아, 미안해요.' },
+          { speaker: 'akira', name: '아키라', text: '월요일에는 약속이 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '친구하고 같이 쇼핑해요.' }
+        ]
+      },
+      {
+        title: '대화 3 (11월 17일)',
+        lines: [
+          { speaker: 'minsoo', name: '민수', text: '11월 17일에 시간이 있어요?' },
+          { speaker: 'akira', name: '아키라', text: '17일이 무슨 요일이에요?' },
+          { speaker: 'minsoo', name: '민수', text: '토요일이에요.' },
+          { speaker: 'minsoo', name: '민수', text: '토요일에 파티가 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '아, 미안해요.' },
+          { speaker: 'akira', name: '아키라', text: '토요일에는 약속이 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '친구하고 같이 도서관에 가요.' }
+        ]
+      },
+      {
+        title: '대화 4 (10월 13일)',
+        lines: [
+          { speaker: 'minsoo', name: '민수', text: '10월 13일에 시간이 있어요?' },
+          { speaker: 'akira', name: '아키라', text: '13일이 무슨 요일이에요?' },
+          { speaker: 'minsoo', name: '민수', text: '화요일이에요.' },
+          { speaker: 'minsoo', name: '민수', text: '화요일에 파티가 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '아, 미안해요.' },
+          { speaker: 'akira', name: '아키라', text: '화요일에는 약속이 있어요.' },
+          { speaker: 'akira', name: '아키라', text: '친구하고 같이 미용실에 가요.' }
+        ]
+      }
+    ];
+
+    // Reactive Application State
+    let dialogueIndex = 0; // 0, 1, 2, 3
+    let turnIndex = 0;     // 0 to 6
+    let responses = {};    // { lineIndex: "spoken string" }
+    let scores = {};       // { lineIndex: number }
+    let drafts = {};       // { lineIndex: "typed string" }
+    let currentDialogueFinished = false;
+
+    let recognition = null;
+    let isRecording = false;
+    let recordingSpeaker = null;
+
+    // Web Speech Recognition Setup
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ko-KR';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        updateMicButtonUI(true);
+        updateStatusMessage(recordingSpeaker, '음성을 듣고 있습니다...', 'info');
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const currentText = finalTranscript || interimTranscript;
+        if (currentText) {
+          const typedElem = document.getElementById(recordingSpeaker === 'minsoo' ? 'typedMinsoo' : 'typedAkira');
+          if (typedElem) {
+            typedElem.value = currentText;
+            drafts[turnIndex] = currentText;
+          }
+        }
+
+        if (finalTranscript) {
+          processResponse(recordingSpeaker, finalTranscript.trim());
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        isRecording = false;
+        updateMicButtonUI(false);
+        if (event.error !== 'no-speech') {
+          updateStatusMessage(recordingSpeaker, '음성 인식을 완료하지 못했습니다. 직접 입력을 시도해 보세요.', 'warn');
+        }
+      };
+
+      recognition.onend = () => {
+        isRecording = false;
+        updateMicButtonUI(false);
+      };
+    }
+
+    /**
+     * Speech Similarity Scoring Algorithm using Levenshtein Distance
+     */
+    function calculateScore(target, spoken) {
+      const cleanTarget = target.replace(/[^가-힣a-zA-Z0-9]/g, '');
+      const cleanSpoken = spoken.replace(/[^가-힣a-zA-Z0-9]/g, '');
+
+      if (!cleanSpoken) return 0;
+      if (cleanTarget === cleanSpoken) return 100;
+
+      const m = cleanTarget.length;
+      const n = cleanSpoken.length;
+      if (m === 0) return 0;
+
+      const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (cleanTarget[i - 1] === cleanSpoken[j - 1]) {
+            dp[i][j] = dp[i - 1][j - 1];
+          } else {
+            dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+          }
+        }
+      }
+
+      const dist = dp[m][n];
+      const maxLen = Math.max(m, n);
+      const similarity = Math.max(0, (1 - dist / maxLen) * 100);
+      return Math.round(similarity);
+    }
+
+    // Mic Button Toggle Handler
+    function handleMicClick(speaker) {
+      const currentLines = DIALOGUES[dialogueIndex].lines;
+      const currentSpeaker = currentLines[turnIndex].speaker;
+
+      if (speaker !== currentSpeaker || currentDialogueFinished) return;
+
+      if (!recognition) {
+        updateStatusMessage(speaker, '이 브라우저는 음성 인식을 지원하지 않습니다. 직접 입력을 사용하세요.', 'warn');
+        return;
+      }
+
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        recordingSpeaker = speaker;
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error('Mic start error:', e);
+        }
+      }
+    }
+
+    function updateMicButtonUI(active) {
+      const btnMic = document.getElementById(recordingSpeaker === 'minsoo' ? 'btnMicMinsoo' : 'btnMicAkira');
+      const micIcon = document.getElementById(recordingSpeaker === 'minsoo' ? 'micIconMinsoo' : 'micIconAkira');
+      const micLabel = document.getElementById(recordingSpeaker === 'minsoo' ? 'micLabelMinsoo' : 'micLabelAkira');
+      const speakerName = recordingSpeaker === 'minsoo' ? '민수' : '아키라';
+
+      if (!btnMic) return;
+
+      if (active) {
+        btnMic.classList.add('recording-active');
+        micIcon.className = 'fa-solid fa-stop text-xs';
+        micLabel.textContent = `${speakerName} 인식 중지`;
+      } else {
+        btnMic.classList.remove('recording-active');
+        micIcon.className = 'fa-solid fa-microphone text-xs';
+        micLabel.textContent = `${speakerName} 말하기 시작`;
+      }
+    }
+
+    // Direct Typed Submission
+    function handleTypedSubmit(speaker) {
+      const currentLines = DIALOGUES[dialogueIndex].lines;
+      const currentSpeaker = currentLines[turnIndex].speaker;
+
+      if (speaker !== currentSpeaker || currentDialogueFinished) return;
+
+      const typedElem = document.getElementById(speaker === 'minsoo' ? 'typedMinsoo' : 'typedAkira');
+      const text = typedElem.value.trim();
+
+      if (!text) {
+        updateStatusMessage(speaker, '문장을 말하거나 직접 입력한 뒤 확인하세요.', 'warn');
+        return;
+      }
+
+      processResponse(speaker, text);
+    }
+
+    // Process & Evaluate Spoken/Typed Response
+    function processResponse(speaker, spokenText) {
+      const currentLines = DIALOGUES[dialogueIndex].lines;
+      if (speaker !== currentLines[turnIndex].speaker) return;
+
+      const targetText = currentLines[turnIndex].text;
+      const score = calculateScore(targetText, spokenText);
+
+      responses[turnIndex] = spokenText;
+      scores[turnIndex] = score;
+      drafts[turnIndex] = spokenText;
+
+      render();
+      updateStatusMessage(speaker, '피드백을 확인하고 다시 말해도 좋아요.', 'good');
+    }
+
+    // Handle Turn / Stage Action Button Click
+    function handleTurnAction() {
+      const currentLines = DIALOGUES[dialogueIndex].lines;
+
+      if (currentDialogueFinished) {
+        // Move to Next Dialogue or Finish All
+        if (dialogueIndex < DIALOGUES.length - 1) {
+          dialogueIndex += 1;
+          turnIndex = 0;
+          responses = {};
+          scores = {};
+          drafts = {};
+          currentDialogueFinished = false;
+          render();
+        } else {
+          // Finished Dialogue 4 -> Show Completion Modal
+          document.getElementById('completionModal').classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (!responses[turnIndex]) return;
+
+      if (turnIndex < currentLines.length - 1) {
+        turnIndex += 1;
+        render();
+      } else {
+        currentDialogueFinished = true;
+        render();
+      }
+    }
+
+    function updateStatusMessage(speaker, msg, tone = 'info') {
+      const statusElem = document.getElementById(speaker === 'minsoo' ? 'statusMinsoo' : 'statusAkira');
+      if (!statusElem) return;
+
+      statusElem.textContent = msg;
+      statusElem.className = 'p-2 rounded-lg text-[11px] font-medium border min-h-[38px] flex items-center transition-colors ';
+
+      if (tone === 'good') {
+        statusElem.className += 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      } else if (tone === 'warn') {
+        statusElem.className += 'bg-amber-50 text-amber-800 border-amber-200';
+      } else {
+        statusElem.className += 'bg-slate-50 text-slate-600 border-slate-100';
+      }
+    }
+
+    // Main UI Render Function
+    function render() {
+      const currentDialogue = DIALOGUES[dialogueIndex];
+      const currentLines = currentDialogue.lines;
+      const currentLine = currentLines[turnIndex];
+      const activeSpeaker = currentDialogueFinished ? null : currentLine.speaker;
+
+      // 1. Update Header Step Indicator
+      document.getElementById('dialogueStepBadge').textContent = `대화 ${dialogueIndex + 1} / ${DIALOGUES.length}`;
+      document.getElementById('chatHeaderTitle').textContent = currentDialogue.title;
+
+      // 2. Student Panel State Updates
+      const panelMinsoo = document.getElementById('panelMinsoo');
+      const panelAkira = document.getElementById('panelAkira');
+
+      const isMinsooActive = activeSpeaker === 'minsoo';
+      const isAkiraActive = activeSpeaker === 'akira';
+
+      panelMinsoo.setAttribute('data-active', isMinsooActive ? 'true' : 'false');
+      panelAkira.setAttribute('data-active', isAkiraActive ? 'true' : 'false');
+
+      // Controls Disabled/Enabled state
+      document.getElementById('btnMicMinsoo').disabled = !isMinsooActive;
+      document.getElementById('typedMinsoo').disabled = !isMinsooActive;
+      document.getElementById('btnSubmitMinsoo').disabled = !isMinsooActive;
+
+      document.getElementById('btnMicAkira').disabled = !isAkiraActive;
+      document.getElementById('typedAkira').disabled = !isAkiraActive;
+      document.getElementById('btnSubmitAkira').disabled = !isAkiraActive;
+
+      // Textarea values
+      document.getElementById('typedMinsoo').value = isMinsooActive ? (drafts[turnIndex] || '') : '';
+      document.getElementById('typedAkira').value = isAkiraActive ? (drafts[turnIndex] || '') : '';
+
+      // Update Panel Status Messages
+      if (currentDialogueFinished) {
+        updateStatusMessage('minsoo', '이 대화를 완수했습니다.', 'good');
+        updateStatusMessage('akira', '이 대화를 완수했습니다.', 'good');
+      } else {
+        if (isMinsooActive) {
+          const hasResp = responses[turnIndex];
+          updateStatusMessage('minsoo', hasResp ? '피드백을 확인하고 다시 말해도 좋아요.' : '지금 내 대사를 말하세요.', hasResp ? 'good' : 'info');
+          updateStatusMessage('akira', '상대의 차례를 기다리세요.', 'info');
+        } else {
+          const hasResp = responses[turnIndex];
+          updateStatusMessage('akira', hasResp ? '피드백을 확인하고 다시 말해도 좋아요.' : '지금 내 대사를 말하세요.', hasResp ? 'good' : 'info');
+          updateStatusMessage('minsoo', '상대의 차례를 기다리세요.', 'info');
+        }
+      }
+
+      // 3. Render KakaoTalk Dialogue Bubbles
+      const chatWindow = document.getElementById('chatWindow');
+      chatWindow.innerHTML = '';
+
+      currentLines.forEach((line, index) => {
+        const isMinsoo = line.speaker === 'minsoo';
+        const isCurrent = index === turnIndex && !currentDialogueFinished;
+        const isFuture = index > turnIndex && !currentDialogueFinished;
+
+        const responseText = responses[index];
+        const score = scores[index];
+
+        const bubbleContainer = document.createElement('div');
+        bubbleContainer.className = `flex flex-col ${isMinsoo ? 'items-start' : 'items-end'} w-full transition-opacity duration-200`;
+        if (isCurrent) bubbleContainer.setAttribute('data-current', 'true');
+
+        if (isFuture) {
+          bubbleContainer.style.opacity = '0.50';
+        } else {
+          bubbleContainer.style.opacity = '1.0';
+        }
+
+        // Speaker Name Tag
+        const nameLabel = document.createElement('div');
+        nameLabel.className = `text-[11px] font-semibold text-slate-600 mb-1 px-1 ${isMinsoo ? 'text-left' : 'text-right'}`;
+        nameLabel.textContent = line.name;
+        bubbleContainer.appendChild(nameLabel);
+
+        // Main Bubble Content
+        const bubbleBox = document.createElement('div');
+        bubbleBox.className = `max-w-[85%] sm:max-w-[80%] p-3 rounded-2xl text-slate-900 shadow-sm transition-all ${isMinsoo ? 'bubble-minsoo' : 'bubble-akira'} ${isCurrent ? 'bubble-current' : ''}`;
+
+        // Feedback Grade Badge
+        let badgeHTML = '';
+        if (typeof score === 'number') {
+          let badgeSymbol = 'O';
+          let badgeBg = 'bg-emerald-600';
+          let badgeLabel = '잘 전달됐어요';
+
+          if (score >= 85) {
+            badgeSymbol = 'O';
+            badgeBg = 'bg-emerald-600';
+            badgeLabel = '잘 전달됐어요';
+          } else if (score >= 60) {
+            badgeSymbol = '△';
+            badgeBg = 'bg-amber-600';
+            badgeLabel = '거의 전달됐어요';
+          } else {
+            badgeSymbol = 'X';
+            badgeBg = 'bg-rose-600';
+            badgeLabel = '다시 말해 보세요';
+          }
+
+          badgeHTML = `
+            <div aria-label="${badgeLabel}" title="${badgeLabel}" class="absolute -top-2.5 ${isMinsoo ? '-left-2.5' : '-right-2.5'} w-[26px] h-[26px] ${badgeBg} text-white font-extrabold text-xs rounded-full border-2 border-white flex items-center justify-center shadow-md z-10">
+              ${badgeSymbol}
+            </div>
+          `;
+        }
+
+        let contentHTML = `
+          <div class="relative">
+            ${badgeHTML}
+            <div class="text-xs sm:text-[0.92rem] font-semibold text-slate-900 leading-snug tracking-wide">
+              ${line.text}
+            </div>
+          </div>
+        `;
+
+        if (responseText) {
+          contentHTML += `
+            <div class="mt-2 pt-2 border-t border-slate-300/60 text-xs">
+              <div class="text-[10px] font-medium text-slate-500 mb-0.5">학생 말하기</div>
+              <div class="font-medium text-slate-800 break-words">${escapeHTML(responseText)}</div>
+            </div>
+          `;
+        }
+
+        bubbleBox.innerHTML = contentHTML;
+        bubbleContainer.appendChild(bubbleBox);
+        chatWindow.appendChild(bubbleContainer);
+      });
+
+      // 4. Update Chat Progress & Footer Status Text
+      const chatProgress = document.getElementById('chatProgress');
+      const chatStatusText = document.getElementById('chatStatusText');
+
+      if (currentDialogueFinished) {
+        chatProgress.textContent = `대화 완료`;
+        chatStatusText.innerHTML = `
+          <i class="fa-solid fa-circle-check text-emerald-500 text-xs shrink-0"></i>
+          <span>대화 ${dialogueIndex + 1}을(를) 마쳤습니다. 오른쪽 상단 '대화 마치기'를 누르세요.</span>
+        `;
+      } else {
+        chatProgress.textContent = `현재 진행 ${turnIndex + 1} / ${currentLines.length}`;
+        const activeName = currentLine.name;
+        const hasCurrentResp = responses[turnIndex];
+
+        if (hasCurrentResp) {
+          chatStatusText.innerHTML = `
+            <i class="fa-solid fa-circle-check text-emerald-500 text-xs shrink-0"></i>
+            <span>${activeName}의 말하기가 기록됐어요. 다음 차례 버튼을 누르세요.</span>
+          `;
+        } else {
+          chatStatusText.innerHTML = `
+            <i class="fa-solid fa-circle-dot text-amber-500 text-xs shrink-0"></i>
+            <span>${activeName}이(가) ${turnIndex + 1}번째 대사를 말할 차례예요.</span>
+          `;
+        }
+      }
+
+      // 5. Shared Action Button State
+      const btnTurnAction = document.getElementById('btnTurnAction');
+      const turnActionLabel = document.getElementById('turnActionLabel');
+      const turnActionIcon = document.getElementById('turnActionIcon');
+
+      if (currentDialogueFinished) {
+        btnTurnAction.disabled = false;
+        btnTurnAction.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5";
+        
+        if (dialogueIndex < DIALOGUES.length - 1) {
+          turnActionLabel.textContent = '대화 마치기 (다음 대화로)';
+          turnActionIcon.className = 'fa-solid fa-arrow-right text-xs';
+        } else {
+          turnActionLabel.textContent = '대화 마치기';
+          turnActionIcon.className = 'fa-solid fa-flag-checkered text-xs';
+        }
+      } else {
+        btnTurnAction.className = "px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-lg text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5";
+        const hasResp = !!responses[turnIndex];
+        btnTurnAction.disabled = !hasResp;
+
+        if (turnIndex === currentLines.length - 1) {
+          turnActionLabel.textContent = '대화 마치기';
+          turnActionIcon.className = 'fa-solid fa-check text-xs';
+        } else {
+          turnActionLabel.textContent = '다음 차례';
+          turnActionIcon.className = 'fa-solid fa-arrow-right text-xs';
+        }
+      }
+
+      // 6. Auto-scroll chat area to active line
+      requestAnimationFrame(() => {
+        scrollToCurrentBubble();
+      });
+    }
+
+    function scrollToCurrentBubble() {
+      const chatWindow = document.getElementById('chatWindow');
+      if (!chatWindow) return;
+
+      const currentBubble = chatWindow.querySelector('[data-current="true"]');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (currentDialogueFinished) {
+        chatWindow.scrollTo({
+          top: chatWindow.scrollHeight,
+          behavior: reducedMotion ? 'auto' : 'smooth'
+        });
+        return;
+      }
+
+      if (currentBubble) {
+        const windowRect = chatWindow.getBoundingClientRect();
+        const currentRect = currentBubble.getBoundingClientRect();
+        const targetTop = Math.max(
+          0,
+          chatWindow.scrollTop + currentRect.top - windowRect.top - 18
+        );
+
+        chatWindow.scrollTo({
+          top: targetTop,
+          behavior: reducedMotion ? 'auto' : 'smooth'
+        });
+      }
+    }
+
+    function escapeHTML(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function restartAllDialogues() {
+      document.getElementById('completionModal').classList.add('hidden');
+      dialogueIndex = 0;
+      turnIndex = 0;
+      responses = {};
+      scores = {};
+      drafts = {};
+      currentDialogueFinished = false;
+      render();
+    }
+
+    // Always start fresh from Dialogue 1 Turn 1 on page load
+    window.onload = function() {
+      dialogueIndex = 0;
+      turnIndex = 0;
+      responses = {};
+      scores = {};
+      drafts = {};
+      currentDialogueFinished = false;
+      render();
+    };
+  </script>
+</body>
+</html>
